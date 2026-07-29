@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import Cookies from 'js-cookie';
 import { EmployeeRoute } from '../routes/auth/login.route.js';
+import { toast } from 'react-toastify';
 
 const AuthContext = createContext();
 
@@ -48,18 +49,34 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const login = (userData) => {
+  const login = (userData, token) => {
     setUser(userData);
+    if (token) {
+      Cookies.set('accessToken', token, { expires: 1, path: '/' });
+    }
     Cookies.set('user_session', JSON.stringify(userData), { expires: 1, path: '/' });
     fetchPermissions();
     return userData;
   };
 
-  const logout = () => {
-    setUser(null);
-    setRoleInfo(null);
-    setPermissions(null);
-    Cookies.remove('user_session', { path: '/' });
+  const logout = async () => {
+    try {
+      const result = await EmployeeRoute.logout();
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      console.error('Failed to logout on server:', err);
+      toast.error('Failed to logout');
+    } finally {
+      setUser(null);
+      setRoleInfo(null);
+      setPermissions(null);
+      Cookies.remove('accessToken', { path: '/' });
+      Cookies.remove('user_session', { path: '/' });
+    }
   };
 
   return (

@@ -38,7 +38,7 @@ export default function LoginPage() {
     }
 
     if (result.data?.user) {
-      login(result.data.user);
+      login(result.data.user, result.data.accessToken);
     }
 
     toast.success(result.message || "Employee logged in successfully");
