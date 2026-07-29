@@ -107,6 +107,67 @@ const formatDateDDMMYYYY = (date) => {
   return `${d}-${m}-${y}`;
 };
 
+const filterUniquePoints = (points) => {
+  if (!points || points.length === 0) return [];
+  const result = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    const prev = result[result.length - 1];
+    const curr = points[i];
+    if (Math.abs(prev.lat - curr.lat) > 0.00003 || Math.abs(prev.lng - curr.lng) > 0.00003) {
+      result.push(curr);
+    }
+  }
+  return result;
+};
+
+const fetchRoadMatchedRoute = async (points) => {
+  const uniquePoints = filterUniquePoints(points);
+  if (!uniquePoints || uniquePoints.length < 2) {
+    return points ? points.map((p) => [p.lat, p.lng]) : [];
+  }
+  try {
+    const coordsString = uniquePoints.map((p) => `${p.lng},${p.lat}`).join(';');
+    const res = await fetch(
+      `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`
+    );
+    const data = await res.json();
+    if (data?.routes?.[0]?.geometry?.coordinates) {
+      return data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+    }
+  } catch (e) {
+    console.warn('OSRM routing fallback:', e);
+  }
+  return points.map((p) => [p.lat, p.lng]);
+};
+
+const calculateBearing = (startLat, startLng, endLat, endLng) => {
+  if (!startLat || !startLng || !endLat || !endLng) return 0;
+  const dLng = ((endLng - startLng) * Math.PI) / 180;
+  const lat1 = (startLat * Math.PI) / 180;
+  const lat2 = (endLat * Math.PI) / 180;
+
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  let brng = (Math.atan2(y, x) * 180) / Math.PI;
+  return (brng + 360) % 360;
+};
+
+const createVehicleIcon = (L, heading = 0) => {
+  return L.divIcon({
+    className: 'custom-vehicle-pin',
+    html: `<div style="position: relative; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;">
+            <div style="position: absolute; width: 38px; height: 38px; background: rgba(2, 132, 199, 0.3); border-radius: 50%;"></div>
+            <div style="width: 32px; height: 32px; background-color: #0284c7; border-radius: 50%; border: 2.5px solid #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; transform: rotate(${heading}deg); transition: transform 0.15s ease-out;">
+              <svg style="width: 18px; height: 18px; fill: white;" viewBox="0 0 24 24">
+                <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+              </svg>
+            </div>
+          </div>`,
+    iconSize: [38, 38],
+    iconAnchor: [19, 19],
+  });
+};
+
 function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistanceKm, attendance }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -123,10 +184,13 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
   const [speedLimit, setSpeedLimit] = useState(100);
   const [stoppageTime, setStoppageTime] = useState(30);
 
-  // Auto playback animation timer
+  const [roadMatchedPath, setRoadMatchedPath] = useState([]);
+  const activeCasingRef = useRef(null);
+
+  // Auto playback animation timer with realistic slow speed (1.6s per point at 1x)
   useEffect(() => {
     if (!isPlaying || locationPoints.length === 0) return;
-    const intervalTime = Math.max(80, 1000 / playbackSpeed);
+    const intervalTime = Math.max(150, 1600 / playbackSpeed);
 
     const timer = setInterval(() => {
       setPlaybackIndex((prev) => {
@@ -177,23 +241,24 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
       );
 
       if (!allSame) {
-        // White outline casing
-        L.polyline(latLngs, {
-          color: '#ffffff',
-          weight: 9,
-          opacity: 0.9,
+        // Faint background dashed trajectory line (unvisited path ahead)
+        fullPolylineRef.current = L.polyline(latLngs, {
+          color: '#94a3b8',
+          weight: 2.5,
+          opacity: 0.5,
+          dashArray: '5, 6',
           lineCap: 'round',
           lineJoin: 'round',
         }).addTo(map);
 
-        // Vibrant Orange Polyline
-        fullPolylineRef.current = L.polyline(latLngs, {
-          color: '#f97316',
-          weight: 6,
-          opacity: 0.95,
-          lineCap: 'round',
-          lineJoin: 'round',
-        }).addTo(map);
+        fetchRoadMatchedRoute(locationPoints).then((roadPath) => {
+          if (roadPath && roadPath.length > 0) {
+            setRoadMatchedPath(roadPath);
+            if (fullPolylineRef.current && mapInstanceRef.current === map) {
+              fullPolylineRef.current.setLatLngs(roadPath);
+            }
+          }
+        });
       }
 
       // Green Start Pin A
@@ -276,7 +341,7 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
     };
   }, [locationPoints, mapTileType, attendance]);
 
-  // Update position marker & traversed polyline segment
+  // Update position marker & progressively paint royal blue route polyline step-by-step
   useEffect(() => {
     if (!mapInstanceRef.current || locationPoints.length === 0 || !locationPoints[playbackIndex]) return;
     const L = window.L;
@@ -286,37 +351,77 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
     const latLng = [pt.lat, pt.lng];
 
     if (locationPoints.length > 1) {
-      if (activePolylineRef.current) {
-        mapInstanceRef.current.removeLayer(activePolylineRef.current);
-      }
-      const activePts = locationPoints.slice(0, playbackIndex + 1).map((p) => [p.lat, p.lng]);
-      if (activePts.length > 1) {
-        activePolylineRef.current = L.polyline(activePts, {
-          color: '#1d4ed8',
-          weight: 6,
-          opacity: 1,
-          lineCap: 'round',
-          lineJoin: 'round',
-        }).addTo(mapInstanceRef.current);
+      if (playbackIndex === 0) {
+        if (activeCasingRef.current) {
+          mapInstanceRef.current.removeLayer(activeCasingRef.current);
+          activeCasingRef.current = null;
+        }
+        if (activePolylineRef.current) {
+          mapInstanceRef.current.removeLayer(activePolylineRef.current);
+          activePolylineRef.current = null;
+        }
+      } else {
+        let activePts = [];
+        if (roadMatchedPath && roadMatchedPath.length > 0) {
+          const prop = playbackIndex / (locationPoints.length - 1);
+          const count = Math.max(2, Math.floor(roadMatchedPath.length * prop));
+          activePts = roadMatchedPath.slice(0, count);
+        } else {
+          activePts = locationPoints.slice(0, playbackIndex + 1).map((p) => [p.lat, p.lng]);
+        }
+
+        if (activePts.length > 1) {
+          if (!activeCasingRef.current) {
+            activeCasingRef.current = L.polyline(activePts, {
+              color: '#ffffff',
+              weight: 6,
+              opacity: 0.95,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }).addTo(mapInstanceRef.current);
+          } else {
+            activeCasingRef.current.setLatLngs(activePts);
+          }
+
+          if (!activePolylineRef.current) {
+            activePolylineRef.current = L.polyline(activePts, {
+              color: '#1d4ed8',
+              weight: 3.5,
+              opacity: 1,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }).addTo(mapInstanceRef.current);
+          } else {
+            activePolylineRef.current.setLatLngs(activePts);
+          }
+        }
       }
     }
 
+    // Calculate heading angle for directional marker orientation
+    let heading = 0;
+    if (playbackIndex > 0 && locationPoints[playbackIndex - 1]) {
+      const prev = locationPoints[playbackIndex - 1];
+      heading = calculateBearing(prev.lat, prev.lng, pt.lat, pt.lng);
+    }
+
+    const vehicleIcon = createVehicleIcon(L, heading);
+
     if (!playbackMarkerRef.current) {
-      const personPinIcon = L.divIcon({
-        className: 'custom-person-pin',
-        html: `<div style="background-color: #0284c7; width: 34px; height: 34px; border-radius: 50%; border: 3px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: white;">
-                <svg style="width: 20px; height: 20px; fill: white;" viewBox="0 0 24 24">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
-              </div>`,
-        iconSize: [34, 34],
-        iconAnchor: [17, 17],
-      });
-      playbackMarkerRef.current = L.marker(latLng, { icon: personPinIcon, zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
+      playbackMarkerRef.current = L.marker(latLng, { icon: vehicleIcon, zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
     } else {
       playbackMarkerRef.current.setLatLng(latLng);
+      playbackMarkerRef.current.setIcon(vehicleIcon);
     }
-  }, [playbackIndex, locationPoints]);
+
+    // Hardware-accelerated 60fps smooth gliding transition (prevents jumping)
+    if (playbackMarkerRef.current && playbackMarkerRef.current._icon) {
+      const transitionSec = isPlaying ? (1.55 / playbackSpeed).toFixed(2) : 0;
+      playbackMarkerRef.current._icon.style.transition = isPlaying
+        ? `transform ${transitionSec}s linear`
+        : 'none';
+    }
+  }, [playbackIndex, locationPoints, roadMatchedPath, isPlaying, playbackSpeed]);
 
   return (
     <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative h-full">
@@ -415,7 +520,7 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
             {/* Playback Speed Switcher */}
             <div className="flex items-center gap-1">
               <span className="text-[11px] text-slate-400 font-medium mr-1 hidden sm:inline">Speed:</span>
-              {[1, 2, 5, 10].map((spd) => (
+              {[0.5, 1, 2, 5].map((spd) => (
                 <button
                   key={spd}
                   type="button"
@@ -892,8 +997,8 @@ export default function EmployeeFieldVisitPage() {
       apiVisits.forEach((visit) => {
         const locations = Array.isArray(visit.locations) ? visit.locations : [];
         locations.forEach((loc, idx) => {
-          const lat = Number(loc.latitude);
-          const lng = Number(loc.longitude);
+          const lat = Number(loc.latitude ?? loc.lat);
+          const lng = Number(loc.longitude ?? loc.lng);
           if (!isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0)) {
             points.push({
               lat,
@@ -971,22 +1076,32 @@ export default function EmployeeFieldVisitPage() {
       const latLngs = locationPoints.map((p) => [p.lat, p.lng]);
 
       // White outline casing around polyline for contrast
-      L.polyline(latLngs, {
+      const casingPolyline = L.polyline(latLngs, {
         color: '#ffffff',
-        weight: 9,
+        weight: 6,
         opacity: 0.9,
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(map);
 
-      // Main Vibrant Orange Route Line (exact match to user screenshot)
+      // Vibrant Dark Royal Blue Route Line (matching mobile app / route view)
       fullPolylineRef.current = L.polyline(latLngs, {
-        color: '#f97316',
-        weight: 6,
+        color: '#1d4ed8',
+        weight: 3.5,
         opacity: 0.95,
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(map);
+
+      // Fetch road-snapped route using OSRM API so line follows streets instead of drawing direct lines through buildings
+      fetchRoadMatchedRoute(locationPoints).then((roadPath) => {
+        if (roadPath && roadPath.length > 0 && mapInstanceRef.current === map) {
+          casingPolyline.setLatLngs(roadPath);
+          if (fullPolylineRef.current) {
+            fullPolylineRef.current.setLatLngs(roadPath);
+          }
+        }
+      });
 
       // Green Start Pin Marker
       const startIcon = L.divIcon({
@@ -1008,20 +1123,18 @@ export default function EmployeeFieldVisitPage() {
         L.marker(latLngs[latLngs.length - 1], { icon: endIcon }).bindPopup('<b>Route End Point</b>').addTo(map);
       }
 
-      // Dark Blue Waypoint Dots along the route
-      const dotSpacing = Math.max(1, Math.floor(locationPoints.length / 10));
+      // Blue Waypoint Dots at every location point (matching mobile app style)
       locationPoints.forEach((pt, idx) => {
-        if (idx > 0 && idx < locationPoints.length - 1 && idx % dotSpacing === 0) {
-          const dotIcon = L.divIcon({
-            className: 'custom-route-dot',
-            html: `<div style="background-color: #0f172a; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.5);"></div>`,
-            iconSize: [8, 8],
-            iconAnchor: [4, 4],
-          });
-          L.marker([pt.lat, pt.lng], { icon: dotIcon })
-            .bindPopup(`<b>Waypoint ${idx + 1}</b><br/>Time: ${pt.time || '-'}`)
-            .addTo(map);
-        }
+        if (idx === 0 || idx === locationPoints.length - 1) return; // skip start/end (they have S/E markers)
+        const dotIcon = L.divIcon({
+          className: 'custom-route-dot',
+          html: `<div style="background-color: #1e40af; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.55);"></div>`,
+          iconSize: [9, 9],
+          iconAnchor: [4.5, 4.5],
+        });
+        L.marker([pt.lat, pt.lng], { icon: dotIcon })
+          .bindPopup(`<b>Point ${idx + 1}</b><br/>Time: ${pt.time || '-'}<br/>Lat: ${pt.lat.toFixed(6)}, Lng: ${pt.lng.toFixed(6)}`)
+          .addTo(map);
       });
 
       if (latLngs.length > 1) {
