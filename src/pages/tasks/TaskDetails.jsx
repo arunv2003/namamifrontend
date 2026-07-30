@@ -1069,20 +1069,22 @@ export default function TaskDetails() {
               </div>
 
               {/* Primary Action Button Container - Fixed at bottom */}
-              <div
-                className={`flex-shrink-0 pt-3 pb-2.5 px-1 border-t backdrop-blur-md z-20 transition-colors ${isDark
-                    ? "bg-slate-950/90 border-slate-800/80"
-                    : "bg-slate-100/90 border-slate-200/80"
-                  }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => setIsCompleteBehalfOpen(true)}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.98] cursor-pointer"
+              {String(taskData.status).toLowerCase() !== "completed" && (
+                <div
+                  className={`flex-shrink-0 pt-3 pb-2.5 px-1 border-t backdrop-blur-md z-20 transition-colors ${isDark
+                      ? "bg-slate-950/90 border-slate-800/80"
+                      : "bg-slate-100/90 border-slate-200/80"
+                    }`}
                 >
-                  Complete Behalf of Employee
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCompleteBehalfOpen(true)}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    Complete Behalf of Employee
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Sidebar Container: Timeline & Customer Sidebar (4 cols on lg - now on Right) */}

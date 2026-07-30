@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Avatar,
   IconButton,
@@ -34,6 +34,12 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import SettingsIcon from '@mui/icons-material/Settings';
+import HowToRegIcon from '@mui/icons-material/HowToReg';
+import BadgeIcon from '@mui/icons-material/Badge';
+import SecurityIcon from '@mui/icons-material/Security';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import BusinessIcon from '@mui/icons-material/Business';
+import RssFeedIcon from '@mui/icons-material/RssFeed';
 
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -59,6 +65,8 @@ export default function Navbar({
     if (location.pathname.startsWith('/tasks')) return 'Team Task';
     if (location.pathname.startsWith('/customers')) return 'Customers';
     if (location.pathname.startsWith('/attendance')) return 'Attendance';
+    if (location.pathname.startsWith('/office')) return 'Office';
+    if (location.pathname.startsWith('/roles')) return 'Roles & Permissions';
     if (location.pathname === '/home') return 'Home';
     return 'Home';
   };
@@ -239,6 +247,7 @@ export default function Navbar({
   const roleInfo = auth?.roleInfo;
 
   // Check if user has permission for a specific module
+  // Check if user has permission for a specific module or sub-module
   const checkPermission = (itemKey) => {
     if (!permissions) return true;
     if (!itemKey) return true;
@@ -248,82 +257,181 @@ export default function Navbar({
       actualPerms = actualPerms.permission;
     }
 
-    const perm = actualPerms[itemKey] || actualPerms[itemKey.toLowerCase()];
-    if (!perm) return false;
+    const lowerKey = itemKey.toLowerCase();
 
-    if (typeof perm === 'boolean') return perm;
-    if (typeof perm === 'object') {
-      return Object.values(perm).some((val) => val === true);
+    // Helper to evaluate if a permission node has any granted access
+    const hasAnyAccess = (targetNode) => {
+      if (!targetNode) return false;
+      if (typeof targetNode === 'boolean') return targetNode;
+      if (typeof targetNode === 'object') {
+        return Object.values(targetNode).some((val) => {
+          if (typeof val === 'boolean') return val;
+          if (typeof val === 'object' && val !== null) return hasAnyAccess(val);
+          return false;
+        });
+      }
+      return false;
+    };
+
+    // 1. Direct top-level match (e.g. 'dashboard', 'task', 'employee', 'role', 'roles')
+    const topMatchKey = Object.keys(actualPerms).find((k) => {
+      const lk = k.toLowerCase();
+      return (
+        lk === lowerKey ||
+        (lowerKey === 'roles' && lk === 'role') ||
+        (lowerKey === 'role' && lk === 'roles') ||
+        (lowerKey === 'office' && lk === 'branch') ||
+        (lowerKey === 'branch' && lk === 'office') ||
+        (lowerKey === 'department-settings' && lk === 'department') ||
+        (lowerKey === 'holiday-settings' && lk === 'holiday')
+      );
+    });
+    if (topMatchKey) {
+      return hasAnyAccess(actualPerms[topMatchKey]);
     }
+
+    // 2. Search in sub-modules (e.g. 'taskAll', 'teamTask', 'allEmployee', 'myTeam', 'attendanceDetails')
+    for (const parentKey of Object.keys(actualPerms)) {
+      const parentVal = actualPerms[parentKey];
+      if (parentVal && typeof parentVal === 'object') {
+        const subMatchKey = Object.keys(parentVal).find((k) => k.toLowerCase() === lowerKey);
+        if (subMatchKey) {
+          return hasAnyAccess(parentVal[subMatchKey]);
+        }
+      }
+    }
+
     return false;
   };
 
-  const navItems = [
-    { label: 'Home', path: '/home', hasDropdown: false, permissionKey: null, icon: <HomeIcon fontSize="small" /> },
-    { label: 'Dashboard', path: '/dashboard', hasDropdown: false, permissionKey: null, icon: <DashboardIcon fontSize="small" /> },
-    { label: 'Employee', path: '/employees', hasDropdown: false, permissionKey: 'employee', icon: <PeopleIcon fontSize="small" /> },
-    {
+  // Metadata mapping API permission keys to Routes, Icons, and Labels
+  const MODULE_METADATA = {
+    dashboard: { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon fontSize="small" /> },
+    task: {
       label: 'Team Task',
       path: '/tasks/all',
-      hasDropdown: true,
-      permissionKey: 'task',
       icon: <AssignmentIcon fontSize="small" />,
-      dropdownItems: [
-        { label: 'Task All', path: '/tasks/all' },
-        { label: 'Team Task', path: '/tasks/team' },
-        { label: 'Task Customer', path: '/tasks/task-customer' },
-        { label: 'Onboarding Task', path: '/tasks/task-on-boarding' },
-        { label: 'Deleted Tasks', path: '/tasks/deleted' },
-      ],
+      subModules: {
+        taskAll: { label: 'Task All', path: '/tasks/all' },
+        teamTask: { label: 'Team Task', path: '/tasks/team' },
+        taskCustomer: { label: 'Task Customer', path: '/tasks/task-customer' },
+        onboardingTask: { label: 'Onboarding Task', path: '/tasks/task-on-boarding' },
+        deletedTasks: { label: 'Deleted Tasks', path: '/tasks/deleted' },
+      },
     },
-    { label: 'Customers', path: '/customers', hasDropdown: false, permissionKey: 'customer' },
-    {
-      label: 'Payment',
-      path: '/home',
-      hasDropdown: true,
-      permissionKey: 'payment',
-      dropdownItems: [
-        { label: 'Payment Transactions', path: '/home' },
-        { label: 'Invoices', path: '/home' },
-      ],
+    employee: {
+      label: 'Employee',
+      path: '/employees',
+      icon: <PeopleIcon fontSize="small" />,
+      subModules: {
+        allEmployee: { label: 'All Employee', path: '/employees' },
+        myTeam: { label: 'My Team', path: '/employees/my-team' },
+      },
     },
-    {
-      label: 'Leave',
-      path: '/home',
-      hasDropdown: true,
-      permissionKey: 'leave',
-      dropdownItems: [
-        { label: 'Leave Requests', path: '/home' },
-        { label: 'Leave Types', path: '/home' },
-      ],
-    },
-    {
+    attendance: {
       label: 'Attendance',
       path: '/attendance/details',
-      hasDropdown: true,
-      permissionKey: 'attendance',
-      dropdownItems: [
-        { label: 'Attendance Details', path: '/attendance/details' },
-        { label: 'Monthly Attendance', path: '/attendance/monthly' },
-      ],
+      icon: <HowToRegIcon fontSize="small" />,
+      subModules: {
+        attendanceDetails: { label: 'Attendance Details', path: '/attendance/details' },
+        monthlyAttendance: { label: 'Monthly Attendance', path: '/attendance/monthly' },
+      },
     },
-    { label: 'Feeds', path: '/home', hasDropdown: false, permissionKey: 'feeds' },
-    { label: 'Reports', path: '/home', hasDropdown: false, permissionKey: 'reports' },
-    {
-      label: 'All Analytics',
-      path: '/home',
-      hasDropdown: true,
-      permissionKey: 'analytics',
-      dropdownItems: [
-        { label: 'Overview', path: '/home' },
-        { label: 'Task Metrics', path: '/home' },
-      ],
-    },
-    { label: 'Contacts', path: '/contacts', hasDropdown: false, permissionKey: 'contacts' },
-    { label: 'Public Form Data', path: '/home', hasDropdown: false, permissionKey: 'public_form' },
-    { label: 'Integration', path: '/home', hasDropdown: false, permissionKey: 'integration' },
-    { label: 'Admin', path: '/home', hasDropdown: false, permissionKey: 'admin' },
-  ];
+    role: { label: 'Roles & Permissions', path: '/roles', icon: <SecurityIcon fontSize="small" /> },
+    admin: { label: 'Admin', path: '/admin', icon: <AdminPanelSettingsIcon fontSize="small" /> },
+    department: { label: 'Department', path: '/department', icon: <BusinessIcon fontSize="small" /> },
+    designation: { label: 'Designation', path: '/designation', icon: <BusinessIcon fontSize="small" /> },
+    branch: { label: 'Branch Offices', path: '/branch', icon: <BusinessIcon fontSize="small" /> },
+    leave: { label: 'Leave', path: '/leave', icon: <HowToRegIcon fontSize="small" /> },
+    holiday: { label: 'Holidays', path: '/holiday', icon: <HowToRegIcon fontSize="small" /> },
+    feeds: { label: 'Feeds', path: '/feeds', icon: <RssFeedIcon fontSize="small" /> },
+    reports: { label: 'Reports', path: '/reports', icon: <RssFeedIcon fontSize="small" /> },
+    settings: { label: 'Settings', path: '/settings', icon: <AdminPanelSettingsIcon fontSize="small" /> },
+  };
+
+  // Dynamically build nav items directly from API permissions
+  const navItems = useMemo(() => {
+    const items = [
+      { label: 'Home', path: '/home', hasDropdown: false, permissionKey: null, icon: <HomeIcon fontSize="small" /> },
+    ];
+
+    if (!permissions) return items;
+
+    let actualPerms = permissions;
+    while (actualPerms && actualPerms.permission && typeof actualPerms.permission === 'object') {
+      actualPerms = actualPerms.permission;
+    }
+
+    const formatLabel = (key) =>
+      key
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/[_-]/g, ' ')
+        .replace(/^./, (str) => str.toUpperCase())
+        .trim();
+
+    const hasAccess = (node) => {
+      if (!node) return false;
+      if (typeof node === 'boolean') return node;
+      if (typeof node === 'object') {
+        return Object.values(node).some((v) => {
+          if (typeof v === 'boolean') return v;
+          if (typeof v === 'object' && v !== null) return hasAccess(v);
+          return false;
+        });
+      }
+      return false;
+    };
+
+    Object.keys(actualPerms).forEach((apiKey) => {
+      const nodePerm = actualPerms[apiKey];
+      if (!hasAccess(nodePerm)) return;
+
+      const lowerKey = apiKey.toLowerCase();
+      const metaKey = Object.keys(MODULE_METADATA).find((k) => k.toLowerCase() === lowerKey);
+      const meta = metaKey ? MODULE_METADATA[metaKey] : null;
+
+      // Check if node contains sub-modules
+      const isParentNode =
+        nodePerm &&
+        typeof nodePerm === 'object' &&
+        !('add' in nodePerm || 'allView' in nodePerm || 'ownView' in nodePerm);
+
+      if (isParentNode) {
+        const activeSubItems = [];
+        Object.keys(nodePerm).forEach((subKey) => {
+          if (hasAccess(nodePerm[subKey])) {
+            const subMeta = meta?.subModules?.[subKey];
+            activeSubItems.push({
+              label: subMeta?.label || formatLabel(subKey),
+              path: subMeta?.path || `/modules/${apiKey}/${subKey}`,
+              permissionKey: subKey,
+            });
+          }
+        });
+
+        if (activeSubItems.length > 0) {
+          items.push({
+            label: meta?.label || formatLabel(apiKey),
+            path: meta?.path || activeSubItems[0]?.path || `/modules/${apiKey}`,
+            hasDropdown: true,
+            permissionKey: apiKey,
+            icon: meta?.icon || null,
+            dropdownItems: activeSubItems,
+          });
+        }
+      } else {
+        items.push({
+          label: meta?.label || formatLabel(apiKey),
+          path: meta?.path || `/modules/${apiKey}`,
+          hasDropdown: false,
+          permissionKey: apiKey,
+          icon: meta?.icon || null,
+        });
+      }
+    });
+
+    return items;
+  }, [permissions]);
 
   const [maxVisibleCount, setMaxVisibleCount] = useState(() => {
     if (typeof window === 'undefined') return 10;
@@ -351,7 +459,7 @@ export default function Navbar({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const visibleNavItems = navItems.filter((item) => checkPermission(item.permissionKey));
+  const visibleNavItems = navItems;
   const primaryNavItems = visibleNavItems.slice(0, maxVisibleCount);
   const extraNavItems = visibleNavItems.slice(maxVisibleCount);
 
@@ -605,86 +713,102 @@ export default function Navbar({
             </button>
           </Tooltip>
 
-          {/* Settings Icon Button */}
-          <Tooltip title="App Settings">
-            <IconButton
-              onClick={(e) => setSettingsAnchorEl(e.currentTarget)}
-              size="small"
-              sx={{
-                color: isDark ? '#cbd5e1' : '#475569',
-                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-                border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #cbd5e1',
-                borderRadius: '10px',
-                p: 0.8,
-                '&:hover': {
-                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.06)',
-                },
-              }}
-            >
-              <SettingsIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {/* Settings Icon Button & Popup */}
+          {(checkPermission('branch') ||
+            checkPermission('office') ||
+            checkPermission('role') ||
+            checkPermission('roles') ||
+            checkPermission('holiday') ||
+            checkPermission('department')) && (
+            <>
+              <Tooltip title="App Settings">
+                <IconButton
+                  onClick={(e) => setSettingsAnchorEl(e.currentTarget)}
+                  size="small"
+                  sx={{
+                    color: isDark ? '#cbd5e1' : '#475569',
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #cbd5e1',
+                    borderRadius: '10px',
+                    p: 0.8,
+                    '&:hover': {
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.06)',
+                    },
+                  }}
+                >
+                  <SettingsIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
 
-          {/* Settings Menu Popup */}
-          <Menu
-            anchorEl={settingsAnchorEl}
-            open={isSettingsMenuOpen}
-            onClose={() => setSettingsAnchorEl(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            slotProps={{
-              paper: {
-                elevation: 4,
-                sx: {
-                  borderRadius: '14px',
-                  mt: 1.5,
-                  minWidth: 200,
-                  padding: '4px',
-                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                  color: isDark ? '#ffffff' : '#0f172a',
-                  border: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
-                },
-              },
-            }}
-          >
-
-            <MenuItem
-              onClick={() => {
-                toggleTheme();
-                setSettingsAnchorEl(null);
-              }}
-              sx={{ borderRadius: '8px', py: 1 }}
-            >
-              New Office 
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                setSettingsAnchorEl(null);
-                navigate('/role-permission');
-              }}
-              sx={{ borderRadius: '8px', py: 1 }}
-            >
-             Role & Permission Settings
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                toggleTheme();
-                setSettingsAnchorEl(null);
-              }}
-              sx={{ borderRadius: '8px', py: 1 }}
-            >
-              Holiday Settings 
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                setSettingsAnchorEl(null);
-                navigate('/department-settings');
-              }}
-              sx={{ borderRadius: '8px', py: 1 }}
-            >
-             Department Settings
-            </MenuItem>
-          </Menu>
+              {/* Settings Menu Popup */}
+              <Menu
+                anchorEl={settingsAnchorEl}
+                open={isSettingsMenuOpen}
+                onClose={() => setSettingsAnchorEl(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                slotProps={{
+                  paper: {
+                    elevation: 4,
+                    sx: {
+                      borderRadius: '14px',
+                      mt: 1.5,
+                      minWidth: 200,
+                      padding: '4px',
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      color: isDark ? '#ffffff' : '#0f172a',
+                      border: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
+                    },
+                  },
+                }}
+              >
+                {(checkPermission('branch') || checkPermission('office')) && (
+                  <MenuItem
+                    onClick={() => {
+                      setSettingsAnchorEl(null);
+                      navigate('/office');
+                    }}
+                    sx={{ borderRadius: '8px', py: 1 }}
+                  >
+                    Office Settings 
+                  </MenuItem>
+                )}
+                {(checkPermission('role') || checkPermission('roles')) && (
+                  <MenuItem
+                    onClick={() => {
+                      setSettingsAnchorEl(null);
+                      navigate('/roles');
+                    }}
+                    sx={{ borderRadius: '8px', py: 1 }}
+                  >
+                    Role & Permission Settings
+                  </MenuItem>
+                )}
+                {checkPermission('holiday') && (
+                  <MenuItem
+                    onClick={() => {
+                      setSettingsAnchorEl(null);
+                      navigate('/holiday');
+                    }}
+                    sx={{ borderRadius: '8px', py: 1 }}
+                  >
+                    Holiday Settings 
+                  </MenuItem>
+                )}
+                {checkPermission('department') && (
+                  <MenuItem
+                    onClick={() => {
+                      setSettingsAnchorEl(null);
+                      navigate('/department-settings');
+                    }}
+                    sx={{ borderRadius: '8px', py: 1 }}
+                  >
+                    Department Settings
+                  </MenuItem>
+                )}
+              </Menu>
+            </>
+          )}
 
           {/* Dynamic Role Badge (Horizontal Inline Layout) */}
           <Tooltip title={`Current Role: ${roleInfo?.name || 'Admin'}`}>

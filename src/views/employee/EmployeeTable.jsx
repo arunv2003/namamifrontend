@@ -194,6 +194,7 @@ export default function EmployeeTable({
           const name = formatCellText(row.original.name);
           const email = formatCellText(row.original.email);
           const img = typeof row.original.image === 'string' && row.original.image !== 'default.png' ? row.original.image : row.original.avatar;
+          console.log(img,"Sasasasasasasasa")
           return (
             <div className="flex items-center gap-3 min-w-[180px]">
               <Avatar
@@ -679,7 +680,7 @@ export default function EmployeeTable({
         header: 'ACTIONS',
         cell: ({ row }) => (
           <div className="flex items-center justify-end gap-1 min-w-[110px]">
-            <Tooltip title="View Details">
+            {/* <Tooltip title="View Details">
               <IconButton
                 size="small"
                 onClick={() => onViewClick && onViewClick(row.original)}
@@ -690,7 +691,7 @@ export default function EmployeeTable({
               >
                 <VisibilityIcon fontSize="small" />
               </IconButton>
-            </Tooltip>
+            </Tooltip> */}
 
             <Tooltip title="Edit Profile">
               <IconButton

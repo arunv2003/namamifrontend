@@ -7,6 +7,7 @@ import { ThemeProvider, useThemeMode } from './contexts/ThemeContext';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import EmployeePage from './pages/employee/EmployeePage';
+import MyTeamPage from './pages/employee/myTeam';
 import CreateEmployeePage from './pages/employee/CreateEmployeePage';
 import EmployeeFieldVisitPage from './pages/employee/EmployeeFieldVisitPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -16,6 +17,8 @@ import CustomerPage from './pages/customers/customerPage';
 import CustomerDetailsPage from './pages/customers/customerDetailsPage';
 import AttendancePage from './pages/attendance/AttendancePage';
 import ContactsPage from './pages/contacts/contactsPage';
+import OfficePage from './pages/office/OfficePage';
+import RolesPage from './pages/roles/RolesPage';
 
 // Listener to fetch permissions on every route/page change
 function RoutePermissionListener() {
@@ -91,6 +94,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <EmployeePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/employees/my-team"
+              element={
+                <ProtectedRoute>
+                  <MyTeamPage />
                 </ProtectedRoute>
               }
             />
@@ -171,6 +182,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ContactsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/office/*"
+              element={
+                <ProtectedRoute>
+                  <OfficePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/roles/*"
+              element={
+                <ProtectedRoute>
+                  <RolesPage />
                 </ProtectedRoute>
               }
             />

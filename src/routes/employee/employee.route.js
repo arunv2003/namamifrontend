@@ -106,6 +106,26 @@ export const EmployeeRoute = {
             return errorData;
         }
     },
+    getMyTeam: async () => {
+        try {
+            const result = await axios.get(`${baseURL}/api/v1/employees/my-team`, {
+                withCredentials: true,
+                params: {
+                    _t: Date.now(),
+                },
+            });
+            return result.data;
+        } catch (error) {
+            console.log(error);
+            const errorData = error.response?.data || {
+                statusCode: 500,
+                message: error.message || "Failed to fetch team hierarchy",
+                success: false,
+            };
+            toast.error(errorData.message || "Failed to fetch team hierarchy");
+            return errorData;
+        }
+    },
     createEmployee: async (data) => {
         try {
             const result = await axios.post(`${baseURL}/api/v1/employees/create`, data, {

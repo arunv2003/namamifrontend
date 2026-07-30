@@ -184,32 +184,49 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
   const [speedLimit, setSpeedLimit] = useState(100);
   const [stoppageTime, setStoppageTime] = useState(30);
 
+  const [progress, setProgress] = useState(0);
   const [roadMatchedPath, setRoadMatchedPath] = useState([]);
   const activeCasingRef = useRef(null);
 
-  // Auto playback animation timer with realistic slow speed (1.6s per point at 1x)
+  // Smooth 33 FPS playback animation timer advancing progress continuously
   useEffect(() => {
-    if (!isPlaying || locationPoints.length === 0) return;
-    const intervalTime = Math.max(150, 1600 / playbackSpeed);
+    if (!isPlaying || locationPoints.length <= 1) return;
+
+    const maxProgress = Math.max(1, locationPoints.length - 1);
+    const totalDurationSec = Math.max(12, locationPoints.length * 1.5);
+    const intervalMs = 30; // ~33 FPS continuous animation
+    const step = (maxProgress / (totalDurationSec * (1000 / intervalMs))) * playbackSpeed;
 
     const timer = setInterval(() => {
-      setPlaybackIndex((prev) => {
-        if (prev >= locationPoints.length - 1) {
-          setIsPlaying(false);
-          return prev;
+      setProgress((prev) => {
+        const next = prev + step;
+        if (next >= maxProgress) {
+          return maxProgress;
         }
-        return prev + 1;
+        return next;
       });
-    }, intervalTime);
+    }, intervalMs);
 
     return () => clearInterval(timer);
   }, [isPlaying, playbackSpeed, locationPoints.length]);
+
+  // Stop playback when progress reaches maximum
+  useEffect(() => {
+    const maxProgress = Math.max(1, locationPoints.length - 1);
+    if (isPlaying && progress >= maxProgress) {
+      setIsPlaying(false);
+    }
+  }, [progress, isPlaying, locationPoints.length]);
 
   // Leaflet map initialization for Playback View
   useEffect(() => {
     if (!mapContainerRef.current || !window.L) return;
     const L = window.L;
 
+    activeCasingRef.current = null;
+    activePolylineRef.current = null;
+    playbackMarkerRef.current = null;
+    fullPolylineRef.current = null;
     if (mapInstanceRef.current) {
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
@@ -325,6 +342,25 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
         }
       }
 
+      // Render numbered stop markers along route (matching Trackwick design)
+      if (locationPoints.length > 2) {
+        const step = Math.max(1, Math.floor(locationPoints.length / 5));
+        locationPoints.forEach((pt, i) => {
+          if (i > 0 && i < locationPoints.length - 1 && i % step === 0) {
+            const stopNum = Math.floor(i / step);
+            const stopIcon = L.divIcon({
+              className: 'custom-stop-pin',
+              html: `<div style="background-color: #0284c7; color: white; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #ffffff; box-shadow: 0 3px 6px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;">${stopNum}</div>`,
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
+            });
+            L.marker([pt.lat, pt.lng], { icon: stopIcon })
+              .bindPopup(`<b>Stop #${stopNum}</b><br/>Time: ${pt.time || 'N/A'}`)
+              .addTo(map);
+          }
+        });
+      }
+
       if (latLngs.length > 1) {
         const bounds = L.latLngBounds(latLngs);
         map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: false });
@@ -334,6 +370,10 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
     }
 
     return () => {
+      activeCasingRef.current = null;
+      activePolylineRef.current = null;
+      playbackMarkerRef.current = null;
+      fullPolylineRef.current = null;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -341,87 +381,113 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
     };
   }, [locationPoints, mapTileType, attendance]);
 
-  // Update position marker & progressively paint royal blue route polyline step-by-step
+  // Continuously render interpolated polyline & move vehicle icon smoothly on top of line tip
   useEffect(() => {
-    if (!mapInstanceRef.current || locationPoints.length === 0 || !locationPoints[playbackIndex]) return;
+    if (!mapInstanceRef.current || locationPoints.length === 0) return;
     const L = window.L;
     if (!L) return;
 
-    const pt = locationPoints[playbackIndex];
-    const latLng = [pt.lat, pt.lng];
+    const map = mapInstanceRef.current;
+    const coords = (roadMatchedPath && roadMatchedPath.length > 0)
+      ? roadMatchedPath
+      : locationPoints.map((p) => [p.lat, p.lng]);
 
-    if (locationPoints.length > 1) {
-      if (playbackIndex === 0) {
-        if (activeCasingRef.current) {
-          mapInstanceRef.current.removeLayer(activeCasingRef.current);
-          activeCasingRef.current = null;
-        }
-        if (activePolylineRef.current) {
-          mapInstanceRef.current.removeLayer(activePolylineRef.current);
-          activePolylineRef.current = null;
-        }
+    if (!coords || coords.length === 0) return;
+
+    let currentLat = coords[0][0];
+    let currentLng = coords[0][1];
+    let activePts = [];
+    let heading = 0;
+
+    const maxProgress = Math.max(1, locationPoints.length - 1);
+    const ratio = Math.max(0, Math.min(progress / maxProgress, 1));
+
+    if (coords.length > 1) {
+      const floatIndex = ratio * (coords.length - 1);
+      const k = Math.min(coords.length - 2, Math.floor(floatIndex));
+      const subRatio = floatIndex - k;
+
+      const p1 = coords[k];
+      const p2 = coords[k + 1];
+
+      currentLat = p1[0] + subRatio * (p2[0] - p1[0]);
+      currentLng = p1[1] + subRatio * (p2[1] - p1[1]);
+
+      activePts = [...coords.slice(0, k + 1), [currentLat, currentLng]];
+      heading = calculateBearing(p1[0], p1[1], p2[0], p2[1]);
+
+      const locIdx = Math.min(locationPoints.length - 1, Math.floor(progress));
+      if (locIdx !== playbackIndex) {
+        setPlaybackIndex(locIdx);
+      }
+    } else {
+      activePts = [[currentLat, currentLng]];
+    }
+
+    // 1. Draw/Update the active royal blue polyline (permanently & smoothly growing)
+    if (activePts.length > 1) {
+      if (!activeCasingRef.current || !map.hasLayer(activeCasingRef.current)) {
+        activeCasingRef.current = L.polyline(activePts, {
+          color: '#ffffff',
+          weight: 6,
+          opacity: 0.95,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(map);
       } else {
-        let activePts = [];
-        if (roadMatchedPath && roadMatchedPath.length > 0) {
-          const prop = playbackIndex / (locationPoints.length - 1);
-          const count = Math.max(2, Math.floor(roadMatchedPath.length * prop));
-          activePts = roadMatchedPath.slice(0, count);
-        } else {
-          activePts = locationPoints.slice(0, playbackIndex + 1).map((p) => [p.lat, p.lng]);
-        }
+        activeCasingRef.current.setLatLngs(activePts);
+      }
 
-        if (activePts.length > 1) {
-          if (!activeCasingRef.current) {
-            activeCasingRef.current = L.polyline(activePts, {
-              color: '#ffffff',
-              weight: 6,
-              opacity: 0.95,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }).addTo(mapInstanceRef.current);
-          } else {
-            activeCasingRef.current.setLatLngs(activePts);
-          }
-
-          if (!activePolylineRef.current) {
-            activePolylineRef.current = L.polyline(activePts, {
-              color: '#1d4ed8',
-              weight: 3.5,
-              opacity: 1,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }).addTo(mapInstanceRef.current);
-          } else {
-            activePolylineRef.current.setLatLngs(activePts);
-          }
-        }
+      if (!activePolylineRef.current || !map.hasLayer(activePolylineRef.current)) {
+        activePolylineRef.current = L.polyline(activePts, {
+          color: '#1d4ed8',
+          weight: 3.5,
+          opacity: 1,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(map);
+      } else {
+        activePolylineRef.current.setLatLngs(activePts);
+      }
+    } else {
+      if (activeCasingRef.current) {
+        try { map.removeLayer(activeCasingRef.current); } catch (e) {}
+        activeCasingRef.current = null;
+      }
+      if (activePolylineRef.current) {
+        try { map.removeLayer(activePolylineRef.current); } catch (e) {}
+        activePolylineRef.current = null;
       }
     }
 
-    // Calculate heading angle for directional marker orientation
-    let heading = 0;
-    if (playbackIndex > 0 && locationPoints[playbackIndex - 1]) {
-      const prev = locationPoints[playbackIndex - 1];
-      heading = calculateBearing(prev.lat, prev.lng, pt.lat, pt.lng);
-    }
-
+    // 2. Position marker directly on the tip of the line
+    const latLng = [currentLat, currentLng];
     const vehicleIcon = createVehicleIcon(L, heading);
 
-    if (!playbackMarkerRef.current) {
-      playbackMarkerRef.current = L.marker(latLng, { icon: vehicleIcon, zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
+    if (!playbackMarkerRef.current || !map.hasLayer(playbackMarkerRef.current)) {
+      playbackMarkerRef.current = L.marker(latLng, { icon: vehicleIcon, zIndexOffset: 1000 }).addTo(map);
     } else {
       playbackMarkerRef.current.setLatLng(latLng);
       playbackMarkerRef.current.setIcon(vehicleIcon);
     }
 
-    // Hardware-accelerated 60fps smooth gliding transition (prevents jumping)
     if (playbackMarkerRef.current && playbackMarkerRef.current._icon) {
-      const transitionSec = isPlaying ? (1.55 / playbackSpeed).toFixed(2) : 0;
-      playbackMarkerRef.current._icon.style.transition = isPlaying
-        ? `transform ${transitionSec}s linear`
-        : 'none';
+      playbackMarkerRef.current._icon.style.transition = 'none';
     }
-  }, [playbackIndex, locationPoints, roadMatchedPath, isPlaying, playbackSpeed]);
+  }, [progress, locationPoints, roadMatchedPath]);
+
+  const currentSpeedKmH = useMemo(() => {
+    if (!locationPoints || locationPoints.length < 2 || playbackIndex === 0) return 0;
+    const p1 = locationPoints[playbackIndex - 1];
+    const p2 = locationPoints[playbackIndex];
+    if (!p1 || !p2) return 0;
+    const distKm = calculateDistanceKm(p1.lat, p1.lng, p2.lat, p2.lng);
+    if (!p1.addedAt || !p2.addedAt) return Math.min(60, +(distKm * 30).toFixed(2));
+    const timeHours = (new Date(p2.addedAt) - new Date(p1.addedAt)) / (1000 * 3600);
+    if (timeHours <= 0) return 0;
+    const spd = distKm / timeHours;
+    return isNaN(spd) ? 0 : Math.min(120, +spd.toFixed(2));
+  }, [playbackIndex, locationPoints]);
 
   return (
     <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative h-full">
@@ -429,6 +495,16 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
       <div className="flex-1 relative bg-slate-200 dark:bg-slate-900 h-full">
         {/* Leaflet Map Canvas */}
         <div ref={mapContainerRef} className="w-full h-full z-0" />
+
+        {/* Floating Speed & Timestamp Gauge (Matching Trackwick live screenshot) */}
+        <div className="absolute bottom-20 right-4 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl font-mono text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 pointer-events-auto">
+          <span className="text-sky-500 animate-pulse">⏱</span>
+          <span>{currentSpeedKmH.toFixed(2)} KM/H</span>
+          <span className="text-slate-300 dark:text-slate-700">|</span>
+          <span className="text-slate-600 dark:text-slate-400">
+            {locationPoints[playbackIndex]?.time || calendarDateLabel}
+          </span>
+        </div>
 
         {/* Floating Attendance Badge on Top Left of Map */}
         {attendance && (
@@ -481,7 +557,14 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setIsPlaying(!isPlaying)}
+                onClick={() => {
+                  const maxProgress = Math.max(1, locationPoints.length - 1);
+                  if (!isPlaying && progress >= maxProgress) {
+                    setProgress(0);
+                    setPlaybackIndex(0);
+                  }
+                  setIsPlaying(!isPlaying);
+                }}
                 className="w-10 h-10 rounded-full bg-sky-600 hover:bg-sky-700 text-white flex items-center justify-center shadow-md font-bold cursor-pointer transition-transform active:scale-95 shrink-0"
               >
                 {isPlaying ? <PauseIcon sx={{ fontSize: 22 }} /> : <PlayArrowIcon sx={{ fontSize: 22 }} />}
@@ -492,6 +575,7 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
                 onClick={() => {
                   setIsPlaying(false);
                   setPlaybackIndex(0);
+                  setProgress(0);
                   if (locationPoints.length > 0 && mapInstanceRef.current) {
                     mapInstanceRef.current.panTo([locationPoints[0].lat, locationPoints[0].lng]);
                   }
@@ -552,6 +636,7 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
                   setIsPlaying(false);
                   const idx = Number(e.target.value);
                   setPlaybackIndex(idx);
+                  setProgress(idx);
                   if (locationPoints[idx] && mapInstanceRef.current) {
                     mapInstanceRef.current.panTo([locationPoints[idx].lat, locationPoints[idx].lng]);
                   }
@@ -1015,6 +1100,13 @@ export default function EmployeeFieldVisitPage() {
       });
     }
 
+    // Sort points in chronological order by timestamp/time
+    points.sort((a, b) => {
+      const tA = a.addedAt ? new Date(a.addedAt).getTime() : 0;
+      const tB = b.addedAt ? new Date(b.addedAt).getTime() : 0;
+      return tA - tB;
+    });
+
     return points;
   }, [apiVisits]);
 
@@ -1046,13 +1138,18 @@ export default function EmployeeFieldVisitPage() {
     tileLayerRef.current = L.tileLayer(url, { maxZoom: 20, attribution: attrib }).addTo(mapInstanceRef.current);
   }, [mapTileType, leafletLoaded]);
 
+  const liveLayersGroupRef = useRef(null);
+
+  // Live Map Effect: Initializes Leaflet map & renders static route polyline & markers when activeTab is 'Live'
   useEffect(() => {
     if (!leafletLoaded || !mapContainerRef.current || activeTab !== 'Live') return;
     const L = window.L;
     if (!L) return;
 
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
+      try {
+        mapInstanceRef.current.remove();
+      } catch (e) {}
       mapInstanceRef.current = null;
     }
 
@@ -1065,54 +1162,61 @@ export default function EmployeeFieldVisitPage() {
       attributionControl: false,
     }).setView(defaultCenter, 15);
 
-    // Full Color Google Maps Vector Tile Layer (Vibrant Colors)
     tileLayerRef.current = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
       maxZoom: 20,
     }).addTo(map);
 
     mapInstanceRef.current = map;
 
+    const resizeTimer = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 150);
+
+    // Clear and render route layers on liveLayersGroupRef
+    liveLayersGroupRef.current = L.layerGroup().addTo(map);
+    const group = liveLayersGroupRef.current;
+
     if (locationPoints.length > 0) {
       const latLngs = locationPoints.map((p) => [p.lat, p.lng]);
 
-      // White outline casing around polyline for contrast
+      // White outline casing
       const casingPolyline = L.polyline(latLngs, {
         color: '#ffffff',
         weight: 6,
         opacity: 0.9,
         lineCap: 'round',
         lineJoin: 'round',
-      }).addTo(map);
+      }).addTo(group);
 
-      // Vibrant Dark Royal Blue Route Line (matching mobile app / route view)
-      fullPolylineRef.current = L.polyline(latLngs, {
+      // Dark Royal Blue route line
+      const mainPolyline = L.polyline(latLngs, {
         color: '#1d4ed8',
         weight: 3.5,
         opacity: 0.95,
         lineCap: 'round',
         lineJoin: 'round',
-      }).addTo(map);
+      }).addTo(group);
 
-      // Fetch road-snapped route using OSRM API so line follows streets instead of drawing direct lines through buildings
+      // OSRM road snapping
       fetchRoadMatchedRoute(locationPoints).then((roadPath) => {
         if (roadPath && roadPath.length > 0 && mapInstanceRef.current === map) {
           casingPolyline.setLatLngs(roadPath);
-          if (fullPolylineRef.current) {
-            fullPolylineRef.current.setLatLngs(roadPath);
-          }
+          mainPolyline.setLatLngs(roadPath);
         }
       });
 
-      // Green Start Pin Marker
+      // Start Pin (S)
       const startIcon = L.divIcon({
         className: 'custom-start-pin',
         html: `<div style="background-color: #10b981; color: white; width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;">S</div>`,
         iconSize: [26, 26],
         iconAnchor: [13, 13],
       });
-      L.marker(latLngs[0], { icon: startIcon }).bindPopup('<b>Route Start Point</b>').addTo(map);
+      L.marker(latLngs[0], { icon: startIcon }).bindPopup('<b>Route Start Point</b>').addTo(group);
 
-      // Red End Pin Marker (if multiple points)
+      // End Pin (E)
       if (latLngs.length > 1) {
         const endIcon = L.divIcon({
           className: 'custom-end-pin',
@@ -1120,21 +1224,21 @@ export default function EmployeeFieldVisitPage() {
           iconSize: [26, 26],
           iconAnchor: [13, 13],
         });
-        L.marker(latLngs[latLngs.length - 1], { icon: endIcon }).bindPopup('<b>Route End Point</b>').addTo(map);
+        L.marker(latLngs[latLngs.length - 1], { icon: endIcon }).bindPopup('<b>Route End Point</b>').addTo(group);
       }
 
-      // Blue Waypoint Dots at every location point (matching mobile app style)
+      // Waypoint Dots
       locationPoints.forEach((pt, idx) => {
-        if (idx === 0 || idx === locationPoints.length - 1) return; // skip start/end (they have S/E markers)
+        if (idx === 0 || idx === locationPoints.length - 1) return;
         const dotIcon = L.divIcon({
           className: 'custom-route-dot',
-          html: `<div style="background-color: #1e40af; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.55);"></div>`,
+          html: `<div style="background-color: #1e40af; width: 9px; height: 9px; border-radius: 50%; border: 2.5px solid #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.55);"></div>`,
           iconSize: [9, 9],
           iconAnchor: [4.5, 4.5],
         });
         L.marker([pt.lat, pt.lng], { icon: dotIcon })
-          .bindPopup(`<b>Point ${idx + 1}</b><br/>Time: ${pt.time || '-'}<br/>Lat: ${pt.lat.toFixed(6)}, Lng: ${pt.lng.toFixed(6)}`)
-          .addTo(map);
+          .bindPopup(`<b>Point ${idx + 1}</b><br/>Time: ${pt.time || '-'}`)
+          .addTo(group);
       });
 
       if (latLngs.length > 1) {
@@ -1145,20 +1249,17 @@ export default function EmployeeFieldVisitPage() {
       }
     }
 
-    const resizeTimer = setTimeout(() => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.invalidateSize();
-      }
-    }, 150);
-
     return () => {
       clearTimeout(resizeTimer);
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+        try {
+          mapInstanceRef.current.remove();
+        } catch (e) {}
         mapInstanceRef.current = null;
       }
+      liveLayersGroupRef.current = null;
     };
-  }, [leafletLoaded, locationPoints, activeTab]);
+  }, [leafletLoaded, activeTab, locationPoints, passedEmployeeName]);
 
   // Route Playback & Time Animation State
   const [isPlaying, setIsPlaying] = useState(false);

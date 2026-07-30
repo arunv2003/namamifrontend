@@ -376,8 +376,8 @@ export default function CompleteBehalfEmployeeModal({
     const hasError = !!errors[field.name];
 
     const commonInputClasses = `w-full px-3 py-2.5 text-xs rounded-xl border transition-colors outline-none focus:ring-2 focus:ring-blue-500 ${isDark
-        ? "bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500"
-        : "bg-slate-50 border-slate-300 text-slate-800 placeholder-slate-400"
+      ? "bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500"
+      : "bg-slate-50 border-slate-300 text-slate-800 placeholder-slate-400"
       } ${hasError ? "border-red-500 focus:ring-red-500" : ""}`;
 
     if (field.type === "select") {
@@ -566,8 +566,8 @@ export default function CompleteBehalfEmployeeModal({
                               onClick={() => setIsMapModalOpen(true)}
                               placeholder={field.placeholder || "Click + button to select location on map"}
                               className={`w-full pl-3 pr-10 py-2.5 text-xs rounded-xl border transition-colors outline-none cursor-pointer ${isDark
-                                  ? "bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500"
-                                  : "bg-slate-50 border-slate-300 text-slate-800 placeholder-slate-400"
+                                ? "bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500"
+                                : "bg-slate-50 border-slate-300 text-slate-800 placeholder-slate-400"
                                 } ${errors[field.name] ? "border-red-500" : ""}`}
                             />
                             <button
