@@ -153,10 +153,20 @@ export default function MonthlyAttendanceTable({ externalSearchTerm = '' }) {
 
     const st = (rec.status || '').toUpperCase();
 
-    if (st === 'PRESENT' || st === 'CLOCKED_IN') {
+    if (st === 'PRESENT') {
       return (
         <Tooltip title={`Present - ${rec.date}`}>
           <div className="w-7 h-7 rounded-md bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700/80 text-emerald-800 dark:text-emerald-300 flex items-center justify-center text-[11px] font-extrabold shadow-xs">
+            P
+          </div>
+        </Tooltip>
+      );
+    }
+
+    if (st === 'CLOCKED_IN') {
+      return (
+        <Tooltip title={`Clocked In (Check-in) - ${rec.date}`}>
+          <div className="w-7 h-7 rounded-md bg-slate-200 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center text-[11px] font-extrabold shadow-xs">
             P
           </div>
         </Tooltip>

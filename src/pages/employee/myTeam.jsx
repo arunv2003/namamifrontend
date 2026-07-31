@@ -45,6 +45,14 @@ export default function MyTeamPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
 
+  // KPI Team Stats state
+  const [teamStats, setTeamStats] = useState({
+    totalMembers: 0,
+    directReports: 0,
+    activeCount: 0,
+    departmentsCount: 0,
+  });
+
   // Column Visibility & Settings Drawer state
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
   const [columnVisibility, setColumnVisibility] = useState({
@@ -97,6 +105,61 @@ export default function MyTeamPage() {
 
       {/* Main Container */}
       <main className="flex-1 min-h-0 w-full px-3 py-3 sm:px-4 flex flex-col space-y-3 overflow-y-auto lg:overflow-hidden">
+        {/* KPI Summary Cards Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 flex-shrink-0">
+          {/* Total Team Members */}
+          <div className={`p-3 sm:p-3.5 rounded-2xl border flex items-center gap-3 transition-all duration-200 ${
+            isDark ? 'bg-slate-900/70 border-slate-800/80' : 'bg-white border-slate-200 shadow-xs'
+          }`}>
+            <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex-shrink-0">
+              <GroupsIcon fontSize="small" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block truncate">Total Team</span>
+              <span className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-none">{teamStats.totalMembers}</span>
+            </div>
+          </div>
+
+          {/* Direct Reports */}
+          <div className={`p-3 sm:p-3.5 rounded-2xl border flex items-center gap-3 transition-all duration-200 ${
+            isDark ? 'bg-slate-900/70 border-slate-800/80' : 'bg-white border-slate-200 shadow-xs'
+          }`}>
+            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex-shrink-0">
+              <AccountTreeIcon fontSize="small" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block truncate">Direct Reports</span>
+              <span className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-none">{teamStats.directReports}</span>
+            </div>
+          </div>
+
+          {/* Active Members */}
+          <div className={`p-3 sm:p-3.5 rounded-2xl border flex items-center gap-3 transition-all duration-200 ${
+            isDark ? 'bg-slate-900/70 border-slate-800/80' : 'bg-white border-slate-200 shadow-xs'
+          }`}>
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+              <GroupsIcon fontSize="small" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block truncate">Active Members</span>
+              <span className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-none">{teamStats.activeCount}</span>
+            </div>
+          </div>
+
+          {/* Departments */}
+          <div className={`p-3 sm:p-3.5 rounded-2xl border flex items-center gap-3 transition-all duration-200 ${
+            isDark ? 'bg-slate-900/70 border-slate-800/80' : 'bg-white border-slate-200 shadow-xs'
+          }`}>
+            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex-shrink-0">
+              <GroupsIcon fontSize="small" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block truncate">Departments</span>
+              <span className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-none">{teamStats.departmentsCount}</span>
+            </div>
+          </div>
+        </div>
+
         {/* Action & Filter Toolbar */}
         <div
           className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 sm:gap-4 flex-shrink-0 transition-all duration-200 ${
@@ -304,42 +367,13 @@ export default function MyTeamPage() {
                   </Tooltip>
                 </>
               )}
-
-              {/* Desktop Add Action Button */}
-              {/* <div className="hidden xl:block flex-shrink-0">
-                <Button
-                  onClick={() => navigate('/create-employee')}
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  sx={{
-                    background: isDark
-                      ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)'
-                      : '#0f172a',
-                    color: '#ffffff',
-                    borderRadius: '12px',
-                    textTransform: 'none',
-                    fontWeight: 700,
-                    padding: '8px 20px',
-                    boxShadow: isDark
-                      ? '0 8px 20px -4px rgba(99, 102, 241, 0.5)'
-                      : '0 4px 12px rgba(15, 23, 42, 0.2)',
-                    '&:hover': {
-                      background: isDark
-                        ? 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)'
-                        : '#1e293b',
-                    },
-                  }}
-                >
-                  Add Member
-                </Button>
-              </div> */}
             </div>
           </div>
         </div>
 
         {/* View Mode Switching Body */}
         {viewMode === 'tree' ? (
-          <OrgTreeChart />
+          <OrgTreeChart onStatsCalculated={(stats) => setTeamStats(stats)} />
         ) : (
           <MyTeamTable
             searchTerm={searchTerm}

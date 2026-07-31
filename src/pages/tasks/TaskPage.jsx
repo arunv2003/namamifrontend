@@ -96,7 +96,7 @@ export default function TaskPage() {
   const getPageHeaderTitle = () => {
     if (isCustomerView) return "Customer Tasks";
     if (isOnboardingView) return "Onboarding Tasks";
-    if (isTeamView) return "Team Tasks";
+    if (isTeamView) return "Tasks";
     if (isDeletedView) return "Deleted Tasks";
     if (isCustomView) return "Custom Team Tasks";
     return "All Team Tasks";
@@ -221,16 +221,19 @@ export default function TaskPage() {
     let res;
     if (isCustomerView) {
       res = await TaskRoute.getAllCustomerTasks(params);
+    } else if (isTeamView) {
+      res = await TaskRoute.getTeamTask(params);
     } else {
       res = await TaskRoute.getAllTasks(params);
     }
 
-    if (res?.success && res.data?.tasks) {
-      setTasks(res.data.tasks);
+    if (res?.success && res.data) {
+      const taskList = Array.isArray(res.data) ? res.data : (res.data.tasks || []);
+      setTasks(taskList);
       setTotalItems(
         res.data.totalItems !== undefined
           ? res.data.totalItems
-          : res.data.tasks.length,
+          : taskList.length,
       );
     } else {
       setTasks([]);

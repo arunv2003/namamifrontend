@@ -21,7 +21,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import EditIcon from '@mui/icons-material/Edit';
 
-import RolePermissionMatrix, { ALL_PROJECT_MODULES, MODULE_TREE } from '../../../views/roles/RolePermissionMatrix';
+import RolePermissionMatrix, { ALL_PROJECT_MODULES, MODULE_TREE, sortPermissionsByModuleTree } from '../../../views/roles/RolePermissionMatrix';
 import { useThemeMode } from '../../../contexts/ThemeContext';
 import { roleRoute } from '../../../routes/roles/role.route';
 import { toast } from 'react-toastify';
@@ -124,7 +124,7 @@ export default function RoleFormModal({
           }
         });
       }
-      setPermissions(mergedPerms);
+      setPermissions(sortPermissionsByModuleTree(mergedPerms));
     } else {
       setRoleName('');
       setRoleStatus('active');
@@ -150,10 +150,11 @@ export default function RoleFormModal({
 
     setSaving(true);
     try {
+      const sortedPayloadPermissions = sortPermissionsByModuleTree(permissions);
       const payload = {
         name: roleName.trim(),
         status: roleStatus,
-        permission: permissions,
+        permission: sortedPayloadPermissions,
       };
 
       let res;

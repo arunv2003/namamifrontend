@@ -21,7 +21,6 @@ export const TaskRoute = {
             return errorData;
         }
     },
-
     createTask: async (data) => {
         try {
             const result = await axios.post(`${baseURL}/api/v1/tasks/create`, data, {
@@ -163,11 +162,6 @@ export const TaskRoute = {
             return errorData;
         }
     },
-
-
-
-
-
     completebehalf: async () => {
         try {
             const result = await axios.get(`${baseURL}/api/v1/complete-behalf/fields`, {
@@ -201,6 +195,27 @@ export const TaskRoute = {
                 success: false,
             };
             toast.error(errorData.message || "Failed to complete task");
+            return errorData;
+        }
+    },
+    getTeamTask: async ({ page, limit } = {}) => {
+        try {
+            const result = await axios.get(`${baseURL}/api/v1/tasks/team/task`, {
+                withCredentials: true,
+                params: {
+                    page,
+                    limit,
+                },
+            });
+            return result.data;
+        } catch (error) {
+            console.log(error);
+            const errorData = error.response?.data || {
+                statusCode: 500,
+                message: error.message || "Failed to fetch tasks",
+                success: false,
+            };
+            toast.error(errorData.message || "Failed to fetch tasks");
             return errorData;
         }
     }

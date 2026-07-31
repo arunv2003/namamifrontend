@@ -30,7 +30,7 @@ import { rankItem } from '@tanstack/match-sorter-utils';
 import { useThemeMode } from '../../contexts/ThemeContext';
 
 import TablePaginationComponent from '../../components/common/TablePaginationComponent';
-import { ALL_PROJECT_MODULES } from './RolePermissionMatrix';
+import { ALL_PROJECT_MODULES, sortPermissionsByModuleTree } from './RolePermissionMatrix';
 
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -110,7 +110,15 @@ export default function RolePermissionTable({
   const [selectedRoleJson, setSelectedRoleJson] = useState(null);
 
   const handleOpenJsonModal = (role) => {
-    setSelectedRoleJson(role);
+    if (role && role.permission) {
+      const sortedPerms = sortPermissionsByModuleTree(role.permission);
+      setSelectedRoleJson({
+        ...role,
+        permission: sortedPerms,
+      });
+    } else {
+      setSelectedRoleJson(role);
+    }
     setJsonModalOpen(true);
   };
 
@@ -216,20 +224,51 @@ export default function RolePermissionTable({
         header: 'Permissions Overview',
         cell: ({ row }) => {
           const { grantedCount, moduleCount } = getPermissionSummary(row.original);
-          const maxPerms = ALL_PROJECT_MODULES.length * 5;
-          const percent = Math.min(100, Math.round((grantedCount / maxPerms) * 100));
+          const maxPerms = ALL_PROJECT_MODULES.reduce((sum, m) => sum + (m.actions ? m.actions.length : 5), 0);
+          const percent = Math.min(100, Math.round((grantedCount / (maxPerms || 1)) * 100));
+
+          let barBg = 'bg-rose-500';
+          let textColor = 'text-rose-600 dark:text-rose-400';
+          let badgeStyle = isDark
+            ? 'bg-rose-950/40 text-rose-300 border-rose-800'
+            : 'bg-rose-50 text-rose-700 border-rose-200';
+
+          if (percent >= 75) {
+            barBg = 'bg-emerald-500';
+            textColor = 'text-emerald-600 dark:text-emerald-400';
+            badgeStyle = isDark
+              ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800'
+              : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+          } else if (percent >= 40) {
+            barBg = 'bg-blue-600';
+            textColor = 'text-blue-600 dark:text-blue-400';
+            badgeStyle = isDark
+              ? 'bg-blue-950/40 text-blue-300 border-blue-800'
+              : 'bg-blue-50 text-blue-700 border-blue-200';
+          } else if (percent >= 15) {
+            barBg = 'bg-amber-500';
+            textColor = 'text-amber-600 dark:text-amber-400';
+            badgeStyle = isDark
+              ? 'bg-amber-950/40 text-amber-300 border-amber-800'
+              : 'bg-amber-50 text-amber-700 border-amber-200';
+          }
 
           return (
-            <div className="flex flex-col gap-1 min-w-[150px]">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="font-bold">{grantedCount} Perms</span>
+            <div className="flex flex-col gap-1 min-w-[160px]">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span className={textColor}>{grantedCount} Perms</span>
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${badgeStyle}`}>
+                    {percent}%
+                  </span>
+                </div>
                 <span className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   ({moduleCount}/{ALL_PROJECT_MODULES.length} Mods)
                 </span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                 <div
-                  className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                  className={`h-full ${barBg} rounded-full transition-all duration-300`}
                   style={{ width: `${percent}%` }}
                 />
               </div>
@@ -262,7 +301,7 @@ export default function RolePermissionTable({
         id: 'actions',
         header: () => <div className="text-right">Actions</div>,
         cell: ({ row }) => {
-          const role = row.original;
+        const role = row.original;
           return (
             <div className="flex items-center justify-end gap-1">
               <Tooltip title="View Full JSON">

@@ -5,7 +5,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import TwitterIcon from "@mui/icons-material/Twitter";
-import LocationOnIcon from "@mui/icons-material/LocationOn";
+import AppLogo from "../../components/common/AppLogo";
 import { EmployeeRoute } from "../../routes/auth/login.route.js";
 import { toast } from "react-toastify";
 
@@ -26,10 +26,7 @@ export default function LoginPage() {
     setError("");
 
     const result = await EmployeeRoute.login({ email, password });
-
     setLoading(false);
-
-    console.log(result);
 
     if (!result || result.statusCode !== 200 || !result.success) {
       const errorMsg = result?.message || "Login failed";
@@ -46,398 +43,186 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        width: "100vw",
-        height: "100vh",
-        minHeight: "100vh",
-        maxHeight: "100vh",
-        backgroundColor: "#ffffff",
-        display: "flex",
-        position: "relative",
-        overflow: "hidden",
-        margin: 0,
-        padding: 0,
-        fontFamily: "'Plus Jakarta Sans', 'Inter', sans-serif",
-      }}
-    >
-      {/* LEFT FORM SECTION (Full Height) */}
-      <div
-        style={{
-          width: "50%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "flex-start",
-          zIndex: 10,
-          backgroundColor: "transparent",
-          boxSizing: "border-box",
-          padding: "40px 40px 40px 80px",
-        }}
+    <div className="w-full h-screen max-h-screen bg-white flex flex-col md:flex-row overflow-hidden font-sans select-none relative">
+      {/* DESKTOP FULL-SCREEN DIAGONAL SPLIT BANNER (>= 768px) - FRESH VIBRANT GREEN TO ORANGE GRADIENT */}
+      <div 
+        className="hidden md:block absolute inset-0 w-full h-full bg-gradient-to-br from-green-600 via-emerald-500 to-amber-500 z-0 pointer-events-none"
+        style={{ clipPath: "polygon(24% 0, 100% 0, 100% 100%)" }}
+      />
+
+      {/* MOBILE DIAGONAL TOP BANNER (< 768px) */}
+      <div 
+        className="md:hidden w-full bg-gradient-to-br from-green-600 via-emerald-500 to-amber-500 pt-6 pb-12 px-6 text-white text-center flex flex-col items-center justify-center relative overflow-hidden shadow-md shrink-0"
+        style={{ clipPath: "polygon(0 0, 100% 0, 100% 85%, 0 100%)" }}
       >
-        <div style={{ width: "100%", maxWidth: "420px" }}>
-          {/* Brand Logo Header - EmployeeTrackr */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "14px",
-              marginBottom: "28px",
-            }}
-          >
-            <div
-              style={{
-                width: "52px",
-                height: "52px",
-                borderRadius: "50%",
-                backgroundColor: "#0f172a",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 8px 20px -4px rgba(15, 23, 42, 0.3)",
-                flexShrink: 0,
-              }}
-            >
-              <LocationOnIcon style={{ fontSize: 32, color: "#f97316" }} />
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "flex-end",
-                paddingBottom: "3px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "16px",
-                  fontWeight: 800,
-                  color: "#0f172a",
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1.1,
-                }}
-              >
-                Employee<span style={{ color: "#8b5cf6" }}>Trackr</span>
-              </span>
-              <span
-                style={{
-                  fontSize: "10px",
-                  color: "#64748b",
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  marginTop: "2px",
-                }}
-              >
-                Workforce Management
-              </span>
-            </div>
+        <div className="relative z-10 flex flex-col items-center gap-1.5">
+          <AppLogo size={48} showText={true} lightText={true} />
+          <h2 className="text-xl font-black mt-1 text-white tracking-tight">Welcome Back</h2>
+          <p className="text-[11px] text-green-50 max-w-xs font-medium">
+            Workforce & Attendance Management Portal
+          </p>
+        </div>
+      </div>
+
+      {/* LEFT FORM SECTION (Positioned in White Area) */}
+      <div className="w-full md:w-1/2 h-full max-h-screen flex flex-col justify-between p-4 sm:p-8 lg:p-12 z-10 bg-transparent overflow-hidden">
+        <div className="w-full max-w-md mx-auto md:ml-4 lg:ml-8 md:mr-auto my-auto py-1">
+          {/* Desktop Brand Logo Header */}
+          <div className="hidden md:block mb-6 relative z-20">
+            <AppLogo size={60} showText={true} />
           </div>
 
           {/* Title Header */}
-          <div style={{ marginBottom: "24px" }}>
-            <h3
-              style={{
-                fontSize: "28px",
-                fontWeight: 800,
-                color: "#1e293b",
-                margin: "0 0 4px 0",
-                letterSpacing: "-0.02em",
-              }}
-            >
+          <div className="mb-5">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               Login
-            </h3>
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
+              Please enter your credentials to access your account.
+            </p>
           </div>
 
           {error && (
-            <div
-              style={{
-                marginBottom: "20px",
-                padding: "12px 16px",
-                borderRadius: "12px",
-                backgroundColor: "#fff1f2",
-                border: "1px solid #fecdd3",
-                color: "#e11d48",
-                fontSize: "14px",
-              }}
-            >
+            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs sm:text-sm font-medium">
               {error}
             </div>
           )}
 
           {/* Form Inputs */}
-          <form
-            onSubmit={handleSubmit}
-            style={{ display: "flex", flexDirection: "column", gap: "22px" }}
-          >
-            {/* Username Input */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email Input */}
             <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Email Address
+              </label>
               <input
-                type="text"
+                type="email"
                 required
                 placeholder="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "16px 20px",
-                  borderRadius: "14px",
-                  border: "1.5px solid #cbd5e1",
-                  fontSize: "15px",
-                  color: "#1e293b",
-                  outline: "none",
-                  boxSizing: "border-box",
-                  transition: "all 0.2s",
-                  backgroundColor: "#ffffff",
-                }}
-                onFocus={(e) => (e.target.style.borderColor = "#9333ea")}
-                onBlur={(e) => (e.target.style.borderColor = "#cbd5e1")}
+                className="w-full px-4 py-3 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white shadow-xs"
               />
             </div>
 
             {/* Password Input */}
-            <div style={{ position: "relative" }}>
-              <input
-                type={showPassword ? "text" : "password"}
-                required
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "16px 50px 16px 20px",
-                  borderRadius: "14px",
-                  border: "1.5px solid #cbd5e1",
-                  fontSize: "15px",
-                  color: "#1e293b",
-                  outline: "none",
-                  boxSizing: "border-box",
-                  transition: "all 0.2s",
-                  backgroundColor: "#ffffff",
-                }}
-                onFocus={(e) => (e.target.style.borderColor = "#9333ea")}
-                onBlur={(e) => (e.target.style.borderColor = "#cbd5e1")}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: "absolute",
-                  right: "16px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "none",
-                  border: "none",
-                  color: "#94a3b8",
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-              >
-                {showPassword ? (
-                  <VisibilityOff style={{ fontSize: 22 }} />
-                ) : (
-                  <Visibility style={{ fontSize: 22 }} />
-                )}
-              </button>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-4 pr-12 py-3 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white shadow-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer"
+                >
+                  {showPassword ? (
+                    <VisibilityOff sx={{ fontSize: 20 }} />
+                  ) : (
+                    <Visibility sx={{ fontSize: 20 }} />
+                  )}
+                </button>
+              </div>
             </div>
 
-            {/* Options Row */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                fontSize: "14px",
-                color: "#64748b",
-              }}
-            >
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  cursor: "pointer",
-                  userSelect: "none",
-                }}
-              >
+            {/* Remember Me & Forgot Password Row */}
+            <div className="flex items-center justify-between text-xs text-slate-600 pt-0.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  style={{
-                    width: "18px",
-                    height: "18px",
-                    accentColor: "#9333ea",
-                    cursor: "pointer",
-                  }}
+                  className="w-4 h-4 rounded text-green-600 focus:ring-green-600 accent-green-600 cursor-pointer"
                 />
-                <span style={{ fontWeight: 500 }}>Remember Me</span>
+                <span className="font-medium text-slate-700">Remember Me</span>
               </label>
 
               <a
                 href="#forgot"
                 onClick={(e) => e.preventDefault()}
-                style={{
-                  color: "#64748b",
-                  textDecoration: "none",
-                  fontWeight: 500,
-                }}
+                className="font-semibold text-green-600 hover:text-green-700 hover:underline transition-colors"
               >
                 Forgot password?
               </a>
             </div>
 
             {/* Right Aligned Pill LOGIN Button */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                marginTop: "10px",
-              }}
-            >
+            <div className="pt-1 flex justify-end">
               <button
                 type="submit"
                 disabled={loading}
-                style={{
-                  padding: "14px 48px",
-                  borderRadius: "9999px",
-                  backgroundColor: "#8b5cf6",
-                  color: "#ffffff",
-                  fontWeight: 700,
-                  fontSize: "15px",
-                  letterSpacing: "0.05em",
-                  textTransform: "uppercase",
-                  border: "none",
-                  boxShadow: "0 12px 24px -6px rgba(139, 92, 246, 0.45)",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) =>
-                  (e.target.style.backgroundColor = "#7c3aed")
-                }
-                onMouseLeave={(e) =>
-                  (e.target.style.backgroundColor = "#8b5cf6")
-                }
+                className="w-full sm:w-auto px-10 py-3 rounded-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-xs sm:text-sm tracking-wider uppercase shadow-lg shadow-green-600/30 transition-all active:scale-98 cursor-pointer disabled:opacity-70"
               >
-                {loading ? "LOADING..." : "LOGIN"}
+                {loading ? "LOGIN..." : "LOGIN"}
               </button>
             </div>
           </form>
 
           {/* Social Login Footer */}
-          <div
-            style={{
-              marginTop: "48px",
-              display: "flex",
-              alignItems: "center",
-              gap: "18px",
-            }}
-          >
-            <span
-              style={{ fontSize: "15px", color: "#64748b", fontWeight: 500 }}
-            >
+          <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between gap-4">
+            <span className="text-xs font-semibold text-slate-500">
               Or login with
             </span>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              {/* Facebook Button */}
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => navigate("#")}
-                style={{
-                  width: "58px",
-                  height: "36px",
-                  borderRadius: "9999px",
-                  backgroundColor: "#3b5998",
-                  color: "#ffffff",
-                  border: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.12)",
-                  transition: "transform 0.15s",
-                }}
+                className="w-12 h-8.5 rounded-full bg-[#3b5998] hover:opacity-90 text-white flex items-center justify-center shadow-xs transition-transform active:scale-95 cursor-pointer"
                 aria-label="Login with Facebook"
               >
-                <FacebookIcon style={{ fontSize: 20 }} />
+                <FacebookIcon sx={{ fontSize: 18 }} />
               </button>
-
-              {/* Twitter Button */}
               <button
                 type="button"
                 onClick={() => navigate("#")}
-                style={{
-                  width: "58px",
-                  height: "36px",
-                  borderRadius: "9999px",
-                  backgroundColor: "#00acee",
-                  color: "#ffffff",
-                  border: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.12)",
-                  transition: "transform 0.15s",
-                }}
+                className="w-12 h-8.5 rounded-full bg-[#00acee] hover:opacity-90 text-white flex items-center justify-center shadow-xs transition-transform active:scale-95 cursor-pointer"
                 aria-label="Login with Twitter"
               >
-                <TwitterIcon style={{ fontSize: 20 }} />
+                <TwitterIcon sx={{ fontSize: 18 }} />
               </button>
             </div>
           </div>
         </div>
+
+        {/* Footer info */}
+        <div className="text-center md:text-left text-[11px] text-slate-400 py-1">
+          © {new Date().getFullYear()} Workforce Management Portal. All rights reserved.
+        </div>
       </div>
 
-      {/* RIGHT SIDE DIAGONAL TRIANGLE BANNER MATCHING REFERENCE DESIGN */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          right: 0,
-          width: "70%",
-          height: "100%",
-          clipPath: "polygon(0% 0%, 100% 0%, 100% 120%)",
-          background:
-            "linear-gradient(135deg, #7c3aed 0%, #6366f1 45%, #06b6d4 100%)",
-          zIndex: 5,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-end",
-          justifyContent: "flex-start",
-          padding: "80px 80px 0 0",
-          boxSizing: "border-box",
-        }}
-      >
-        <div style={{ textAlign: "right", maxWidth: "420px" }}>
-          <h2
-            style={{
-              fontSize: "58px",
-              fontWeight: 800,
-              color: "#ffffff",
-              lineHeight: 1.08,
-              margin: "0 0 20px 0",
-              textShadow: "0 4px 20px rgba(0,0,0,0.15)",
-            }}
-          >
-            Welcome
-            <br />
-            Back.
+      {/* RIGHT HERO SECTION (Positioned in Top-Right Gradient Triangle area, >= 768px) */}
+      <div className="hidden md:flex md:w-1/2 h-full max-h-screen z-10 flex-col justify-between p-6 md:p-10 lg:p-12 text-white text-right ml-auto pointer-events-none overflow-hidden">
+        {/* Top Right Logo Badge */}
+        <div className="relative z-10 flex justify-end pt-1 pr-1 pointer-events-auto">
+          <AppLogo size={90} showText={true} lightText={true} />
+        </div>
+
+        {/* Hero Text */}
+        <div className="relative z-10 my-auto max-w-[290px] lg:max-w-sm ml-auto pr-1 pointer-events-auto">
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-tight text-white drop-shadow-lg mb-3">
+            Welcome <br /> Back.
           </h2>
-          <p
-            style={{
-              fontSize: "15px",
-              color: "rgba(255, 255, 255, 0.92)",
-              margin: 0,
-              lineHeight: 1.6,
-              fontWeight: 400,
-            }}
-          >
-            Lorem factorial non deposit quid pro quo hic escorol. Olypian
-            quarrels et gorilla congolium.
+          <p className="text-xs lg:text-sm text-green-50 font-semibold leading-relaxed drop-shadow-md">
+            Empower your organization with seamless attendance tracking, workforce management, and real-time operational insights.
           </p>
+        </div>
+
+        {/* Bottom stats/badge */}
+        <div className="relative z-10 flex items-center justify-end gap-3 pb-1 pr-1 text-xs font-bold pointer-events-auto">
+          <span className="px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-slate-800 border border-slate-300 shadow-xs">
+            ✓ Secure Portal
+          </span>
+          <span className="px-3 py-1 rounded-full bg-emerald-950/40 backdrop-blur-sm text-white border border-emerald-300/40 shadow-xs">
+            ✓ Real-time Analytics
+          </span>
         </div>
       </div>
     </div>

@@ -19,6 +19,9 @@ import AttendancePage from './pages/attendance/AttendancePage';
 import ContactsPage from './pages/contacts/contactsPage';
 import OfficePage from './pages/office/OfficePage';
 import RolesPage from './pages/roles/RolesPage';
+import StatePage from './pages/location/state.Page';
+import RegionPage from './pages/location/region.Page';
+import BranchPage from './pages/location/branch.Page';
 
 // Listener to fetch permissions on every route/page change
 function RoutePermissionListener() {
@@ -198,6 +201,30 @@ function App() {
               element={
                 <ProtectedRoute>
                   <RolesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/states/*"
+              element={
+                <ProtectedRoute>
+                  <StatePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/regions/*"
+              element={
+                <ProtectedRoute>
+                  <RegionPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/branches/*"
+              element={
+                <ProtectedRoute>
+                  <BranchPage />
                 </ProtectedRoute>
               }
             />

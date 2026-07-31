@@ -110,9 +110,20 @@ export default function AttendanceTable({
 
   const getStatusChipProps = (status) => {
     const st = String(status || '').toUpperCase();
-    if (st === 'CLOCKED_IN' || st === 'PRESENT') {
+    if (st === 'CLOCKED_IN') {
       return {
-        label: st === 'CLOCKED_IN' ? 'Clocked In' : 'Present',
+        label: 'Clocked In',
+        style: {
+          backgroundColor: isDark ? 'rgba(148, 163, 184, 0.2)' : '#e2e8f0',
+          color: isDark ? '#cbd5e1' : '#475569',
+          border: isDark ? '1px solid rgba(148, 163, 184, 0.4)' : '1px solid #94a3b8',
+          fontWeight: 700,
+        },
+      };
+    }
+    if (st === 'PRESENT') {
+      return {
+        label: 'Present',
         style: {
           backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#dcfce7',
           color: isDark ? '#4ade80' : '#14532d',

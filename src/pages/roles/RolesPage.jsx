@@ -141,16 +141,18 @@ export default function RolesPage() {
     MODULE_TREE.forEach((mod) => {
       if (mod.subModules && mod.subModules.length > 0) {
         mod.subModules.forEach((sub) => {
-          total += 5;
+          const allowed = sub.actions || mod.actions || ['add', 'edit', 'delete', 'allView', 'ownView'];
+          total += allowed.length;
           const p = perms[mod.key]?.[sub.key] || {};
-          ['add', 'edit', 'delete', 'allView', 'ownView'].forEach((k) => {
+          allowed.forEach((k) => {
             if (p[k]) granted++;
           });
         });
       } else {
-        total += 5;
+        const allowed = mod.actions || ['add', 'edit', 'delete', 'allView', 'ownView'];
+        total += allowed.length;
         const p = perms[mod.key] || {};
-        ['add', 'edit', 'delete', 'allView', 'ownView'].forEach((k) => {
+        allowed.forEach((k) => {
           if (p[k]) granted++;
         });
       }

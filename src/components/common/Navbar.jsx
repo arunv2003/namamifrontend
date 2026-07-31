@@ -11,6 +11,11 @@ import {
   Drawer,
   Collapse,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from '@mui/material';
 
 // MUI Icons
@@ -46,6 +51,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useThemeMode } from '../../contexts/ThemeContext';
 import { attendanceRoute } from '../../routes/attendance/attendance.route';
 import { toast } from 'react-toastify';
+import { sortPermissionsByModuleTree } from '../../views/roles/moduleTree';
+import AppLogo from './AppLogo';
 
 export default function Navbar({
   user: propUser,
@@ -60,14 +67,30 @@ export default function Navbar({
 
   // Determine active tab based on current path
   const getCurrentTab = () => {
-    if (location.pathname === '/dashboard') return 'Dashboard';
-    if (location.pathname.startsWith('/employees') || location.pathname.includes('employee')) return 'Employee';
-    if (location.pathname.startsWith('/tasks')) return 'Team Task';
-    if (location.pathname.startsWith('/customers')) return 'Customers';
-    if (location.pathname.startsWith('/attendance')) return 'Attendance';
-    if (location.pathname.startsWith('/office')) return 'Office';
-    if (location.pathname.startsWith('/roles')) return 'Roles & Permissions';
-    if (location.pathname === '/home') return 'Home';
+    const path = location.pathname;
+    if (path === '/dashboard') return 'Dashboard';
+    if (path.startsWith('/employees/my-team')) return 'My Team';
+    if (path.startsWith('/employees') || path.includes('employee')) return 'All Employee';
+    if (path.startsWith('/tasks/all')) return 'Task All';
+    if (path.startsWith('/tasks/team')) return 'Task';
+    if (path.startsWith('/tasks/task-customer')) return 'Task Customer';
+    if (path.startsWith('/tasks/task-on-boarding')) return 'Onboarding Task';
+    if (path.startsWith('/tasks/deleted')) return 'Deleted Tasks';
+    if (path.startsWith('/tasks')) return 'Team Task';
+    if (path.startsWith('/customers')) return 'Customer';
+    if (path.startsWith('/attendance/details')) return 'Attendance Details';
+    if (path.startsWith('/attendance/monthly')) return 'Monthly Attendance';
+    if (path.startsWith('/attendance')) return 'Attendance Details';
+    if (path.startsWith('/states')) return 'State';
+    if (path.startsWith('/regions')) return 'Region';
+    if (path.startsWith('/branches')) return 'Branch';
+    if (path.startsWith('/office')) return 'Office Settings';
+    if (path.startsWith('/roles')) return 'Role & Permission Settings';
+    if (path.startsWith('/holiday')) return 'Holiday Settings';
+    if (path.startsWith('/department-settings') || path.startsWith('/department')) return 'Department Settings';
+    if (path.startsWith('/designation')) return 'Designation';
+    if (path.startsWith('/task-types') || path.startsWith('/tasktype')) return 'Tasktype';
+    if (path === '/home') return 'Home';
     return 'Home';
   };
   const [activeTab, setActiveTab] = useState(getCurrentTab());
@@ -99,6 +122,8 @@ export default function Navbar({
       navigate('/home');
     } else if (item.label === 'Dashboard') {
       navigate('/dashboard');
+    } else if (item.label === 'Customer' || item.label === 'Customers') {
+      navigate('/customers');
     } else if (item.label === 'Employee') {
       navigate('/employees');
     } else if (item.label === 'Team Task') {
@@ -127,9 +152,15 @@ export default function Navbar({
   const [roleAnchorEl, setRoleAnchorEl] = useState(null);
   const isRoleMenuOpen = Boolean(roleAnchorEl);
 
-  // Settings menu anchor element
-  const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
-  const isSettingsMenuOpen = Boolean(settingsAnchorEl);
+  // Profile Dialog state
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [avatarImgError, setAvatarImgError] = useState(false);
+
+  useEffect(() => {
+    setAvatarImgError(false);
+  }, [user?.thumbnail, user?.image]);
+
+
 
   const fetchTodayAttendance = async () => {
     try {
@@ -307,13 +338,15 @@ export default function Navbar({
   // Metadata mapping API permission keys to Routes, Icons, and Labels
   const MODULE_METADATA = {
     dashboard: { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon fontSize="small" /> },
+    customer: { label: 'Customer', path: '/customers', icon: <BadgeIcon fontSize="small" /> },
+    customers: { label: 'Customer', path: '/customers', icon: <BadgeIcon fontSize="small" /> },
     task: {
-      label: 'Team Task',
+      label: 'Tasks',
       path: '/tasks/all',
       icon: <AssignmentIcon fontSize="small" />,
       subModules: {
         taskAll: { label: 'Task All', path: '/tasks/all' },
-        teamTask: { label: 'Team Task', path: '/tasks/team' },
+        teamTask: { label: 'Task', path: '/tasks/team' },
         taskCustomer: { label: 'Task Customer', path: '/tasks/task-customer' },
         onboardingTask: { label: 'Onboarding Task', path: '/tasks/task-on-boarding' },
         deletedTasks: { label: 'Deleted Tasks', path: '/tasks/deleted' },
@@ -328,6 +361,16 @@ export default function Navbar({
         myTeam: { label: 'My Team', path: '/employees/my-team' },
       },
     },
+    location: {
+      label: 'Location',
+      path: '/states',
+      icon: <LocationOnIcon fontSize="small" />,
+      subModules: {
+        state: { label: 'State', path: '/states' },
+        region: { label: 'Region', path: '/regions' },
+        branch: { label: 'Branch', path: '/branches' },
+      },
+    },
     attendance: {
       label: 'Attendance',
       path: '/attendance/details',
@@ -337,16 +380,20 @@ export default function Navbar({
         monthlyAttendance: { label: 'Monthly Attendance', path: '/attendance/monthly' },
       },
     },
-    role: { label: 'Roles & Permissions', path: '/roles', icon: <SecurityIcon fontSize="small" /> },
+    role: { label: 'Role & Permission Settings', path: '/roles', icon: <SecurityIcon fontSize="small" /> },
+    roles: { label: 'Role & Permission Settings', path: '/roles', icon: <SecurityIcon fontSize="small" /> },
     admin: { label: 'Admin', path: '/admin', icon: <AdminPanelSettingsIcon fontSize="small" /> },
-    department: { label: 'Department', path: '/department', icon: <BusinessIcon fontSize="small" /> },
+    department: { label: 'Department Settings', path: '/department-settings', icon: <BusinessIcon fontSize="small" /> },
     designation: { label: 'Designation', path: '/designation', icon: <BusinessIcon fontSize="small" /> },
-    branch: { label: 'Branch Offices', path: '/branch', icon: <BusinessIcon fontSize="small" /> },
+    branch: { label: 'Office Settings', path: '/office', icon: <BusinessIcon fontSize="small" /> },
+    office: { label: 'Office Settings', path: '/office', icon: <BusinessIcon fontSize="small" /> },
     leave: { label: 'Leave', path: '/leave', icon: <HowToRegIcon fontSize="small" /> },
-    holiday: { label: 'Holidays', path: '/holiday', icon: <HowToRegIcon fontSize="small" /> },
+    holiday: { label: 'Holiday Settings', path: '/holiday', icon: <HowToRegIcon fontSize="small" /> },
     feeds: { label: 'Feeds', path: '/feeds', icon: <RssFeedIcon fontSize="small" /> },
     reports: { label: 'Reports', path: '/reports', icon: <RssFeedIcon fontSize="small" /> },
     settings: { label: 'Settings', path: '/settings', icon: <AdminPanelSettingsIcon fontSize="small" /> },
+    tasktype: { label: 'Tasktype', path: '/task-types', icon: <AssignmentIcon fontSize="small" /> },
+    tasktypesettings: { label: 'Tasktype', path: '/task-types', icon: <AssignmentIcon fontSize="small" /> },
   };
 
   // Dynamically build nav items directly from API permissions
@@ -360,6 +407,10 @@ export default function Navbar({
     let actualPerms = permissions;
     while (actualPerms && actualPerms.permission && typeof actualPerms.permission === 'object') {
       actualPerms = actualPerms.permission;
+    }
+
+    if (actualPerms && typeof actualPerms === 'object') {
+      actualPerms = sortPermissionsByModuleTree(actualPerms);
     }
 
     const formatLabel = (key) =>
@@ -382,6 +433,8 @@ export default function Navbar({
       return false;
     };
 
+    const addedPaths = new Set();
+
     Object.keys(actualPerms).forEach((apiKey) => {
       const nodePerm = actualPerms[apiKey];
       if (!hasAccess(nodePerm)) return;
@@ -389,6 +442,10 @@ export default function Navbar({
       const lowerKey = apiKey.toLowerCase();
       const metaKey = Object.keys(MODULE_METADATA).find((k) => k.toLowerCase() === lowerKey);
       const meta = metaKey ? MODULE_METADATA[metaKey] : null;
+
+      const itemPath = meta?.path || `/modules/${apiKey}`;
+      if (addedPaths.has(itemPath)) return;
+      addedPaths.add(itemPath);
 
       // Check if node contains sub-modules
       const isParentNode =
@@ -422,7 +479,7 @@ export default function Navbar({
       } else {
         items.push({
           label: meta?.label || formatLabel(apiKey),
-          path: meta?.path || `/modules/${apiKey}`,
+          path: itemPath,
           hasDropdown: false,
           permissionKey: apiKey,
           icon: meta?.icon || null,
@@ -459,11 +516,31 @@ export default function Navbar({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const visibleNavItems = navItems;
+  const visibleNavItems = useMemo(() => {
+    if (!navItems || navItems.length === 0) return [];
+
+    const activeIndex = navItems.findIndex((item) => {
+      if (item.label === activeTab) return true;
+      if (item.path === location.pathname) return true;
+      if (item.dropdownItems?.some((sub) => sub.label === activeTab || sub.path === location.pathname || (sub.path !== '/home' && location.pathname.startsWith(sub.path)))) return true;
+      return false;
+    });
+
+    if (activeIndex < 0 || activeIndex < maxVisibleCount) {
+      return navItems;
+    }
+
+    const reordered = [...navItems];
+    const [activeItem] = reordered.splice(activeIndex, 1);
+    reordered.splice(1, 0, activeItem);
+    return reordered;
+  }, [navItems, activeTab, location.pathname, maxVisibleCount]);
+
   const primaryNavItems = visibleNavItems.slice(0, maxVisibleCount);
   const extraNavItems = visibleNavItems.slice(maxVisibleCount);
 
-  const userInitial = user?.name ? user.name.trim().charAt(0).toUpperCase() : 'K';
+  const userInitial = user?.name ? user.name.trim().charAt(0).toUpperCase() : 'U';
+  const userAvatarSrc = (!avatarImgError && (user?.thumbnail || user?.image)) ? (user?.thumbnail || user?.image) : null;
 
   return (
     <>
@@ -475,16 +552,14 @@ export default function Navbar({
             : 'bg-white/95 border-slate-200 text-slate-800 shadow-sm'
         }`}
       >
-        {/* Left side: Location Pin Logo & Hamburger Menu */}
+        {/* Left side: Brand Logo & Hamburger Menu */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Brand Pin Icon */}
+          {/* Brand Logo Icon */}
           <div
             onClick={() => navigate('/home')}
-            className="relative flex items-center justify-center cursor-pointer group"
+            className="relative flex items-center justify-center cursor-pointer group transition-transform hover:scale-105"
           >
-            <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-amber-500 shadow-sm transition-transform group-hover:scale-105">
-              <LocationOnIcon sx={{ fontSize: 22, color: '#f97316' }} />
-            </div>
+            <img src="/favicon.svg" alt="Logo" className="w-11 h-11 object-contain" />
           </div>
 
           {/* Hamburger menu icon */}
@@ -507,7 +582,18 @@ export default function Navbar({
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {primaryNavItems.map((item) => {
-            const isActive = activeTab === item.label;
+            const activeSubItem = item.dropdownItems?.find(
+              (sub) =>
+                sub.label === activeTab ||
+                sub.path === location.pathname ||
+                (sub.path !== '/home' && location.pathname.startsWith(sub.path))
+            );
+            const isActive =
+              activeTab === item.label ||
+              Boolean(activeSubItem) ||
+              (item.path !== '/home' && location.pathname.startsWith(item.path));
+            const displayLabel = activeSubItem ? activeSubItem.label : item.label;
+
             return (
               <div key={item.label} className="relative flex-shrink-0">
                 <button
@@ -522,7 +608,7 @@ export default function Navbar({
                       : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/60'
                   }`}
                 >
-                  <span>{item.label}</span>
+                  <span>{displayLabel}</span>
                   {item.hasDropdown && (
                     <KeyboardArrowDownIcon
                       sx={{
@@ -592,10 +678,18 @@ export default function Navbar({
                       borderRadius: '12px',
                       mt: 1,
                       minWidth: 190,
-                      backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
                       color: isDark ? '#f8fafc' : '#0f172a',
-                      border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : '#cbd5e1'}`,
+                      border: `1px solid ${isDark ? '#334155' : '#cbd5e1'}`,
                       boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+                    },
+                  },
+                  list: {
+                    sx: {
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                      padding: '6px',
                     },
                   },
                 }}
@@ -622,9 +716,16 @@ export default function Navbar({
                               sx={{
                                 fontSize: '0.825rem',
                                 pl: 3,
+                                borderRadius: '8px',
                                 fontWeight: isSubActive ? 700 : 500,
                                 color: isSubActive ? (isDark ? '#60a5fa' : '#2563eb') : 'inherit',
                                 py: 0.75,
+                                '&.Mui-selected': {
+                                  backgroundColor: isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(37, 99, 235, 0.12)',
+                                  '&:hover': {
+                                    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.35)' : 'rgba(37, 99, 235, 0.18)',
+                                  },
+                                },
                               }}
                             >
                               <ListItemText
@@ -650,10 +751,17 @@ export default function Navbar({
                       }}
                       sx={{
                         fontSize: '0.825rem',
+                        borderRadius: '8px',
                         fontWeight: isActive ? 700 : 500,
                         color: isActive ? (isDark ? '#60a5fa' : '#2563eb') : 'inherit',
                         py: 1,
                         px: 2,
+                        '&.Mui-selected': {
+                          backgroundColor: isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(37, 99, 235, 0.12)',
+                          '&:hover': {
+                            backgroundColor: isDark ? 'rgba(59, 130, 246, 0.35)' : 'rgba(37, 99, 235, 0.18)',
+                          },
+                        },
                       }}
                     >
                       <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: '0.825rem', fontWeight: isActive ? 700 : 500 }} />
@@ -664,209 +772,74 @@ export default function Navbar({
             </div>
           )}
 
-          {/* Punch In / Punched Out Attendance Status Badge */}
-          <Tooltip title={punchLoading ? 'Processing...' : isPunchedIn ? 'Click to Punch Out' : 'Click to Punch In'}>
-            <button
-              onClick={handlePunchToggle}
-              disabled={punchLoading}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border cursor-pointer transition-all duration-200 select-none ${
-                punchLoading ? 'opacity-60 cursor-not-allowed' : ''
-              } ${
+          {/* Disabled Punch In / Punched Out Attendance Status Badge */}
+          <Tooltip title="Punch action is disabled">
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border select-none opacity-60 cursor-not-allowed ${
                 isPunchedIn
                   ? isDark
-                    ? 'bg-emerald-950/50 border-emerald-800/80 text-emerald-300 hover:bg-emerald-900/60'
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                    ? 'bg-emerald-950/50 border-emerald-800/80 text-emerald-300'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
                   : isDark
-                    ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-800'
-                    : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                    ? 'bg-slate-800/80 border-slate-700 text-slate-300'
+                    : 'bg-slate-100 border-slate-200 text-slate-700'
               }`}
             >
               <div className="relative flex items-center justify-center shrink-0">
-                {punchLoading ? (
-                  <CircularProgress size={18} color="inherit" />
-                ) : (
-                  <>
-                    <FingerprintIcon
-                      sx={{
-                        fontSize: 22,
-                        color: isPunchedIn ? '#10b981' : isDark ? '#cbd5e1' : '#475569',
-                      }}
-                    />
-                    <div className="absolute -top-0.5 -right-0.5 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center p-[0.5px]">
-                      {isPunchedIn ? (
-                        <CheckCircleIcon sx={{ fontSize: 11, color: '#10b981' }} />
-                      ) : (
-                        <CancelIcon sx={{ fontSize: 11, color: '#ef4444' }} />
-                      )}
-                    </div>
-                  </>
-                )}
+                <FingerprintIcon
+                  sx={{
+                    fontSize: 22,
+                    color: isPunchedIn ? '#10b981' : isDark ? '#cbd5e1' : '#475569',
+                  }}
+                />
+                <div className="absolute -top-0.5 -right-0.5 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center p-[0.5px]">
+                  {isPunchedIn ? (
+                    <CheckCircleIcon sx={{ fontSize: 11, color: '#10b981' }} />
+                  ) : (
+                    <CancelIcon sx={{ fontSize: 11, color: '#ef4444' }} />
+                  )}
+                </div>
               </div>
               <div className="text-left leading-tight hidden sm:block">
                 <p className="text-[11px] font-bold tracking-tight">
-                  {punchLoading ? 'Updating...' : isPunchedIn ? 'Punched In' : 'Punched Out'}
+                  {isPunchedIn ? 'Punched In' : 'Punched Out'}
                 </p>
                 <p className="text-[10px] opacity-75 font-mono">
                   {formatPunchTime(punchSeconds)}
                 </p>
               </div>
-            </button>
+            </div>
           </Tooltip>
-
-          {/* Settings Icon Button & Popup */}
-          {(checkPermission('branch') ||
-            checkPermission('office') ||
-            checkPermission('role') ||
-            checkPermission('roles') ||
-            checkPermission('holiday') ||
-            checkPermission('department')) && (
-            <>
-              <Tooltip title="App Settings">
-                <IconButton
-                  onClick={(e) => setSettingsAnchorEl(e.currentTarget)}
-                  size="small"
-                  sx={{
-                    color: isDark ? '#cbd5e1' : '#475569',
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-                    border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #cbd5e1',
-                    borderRadius: '10px',
-                    p: 0.8,
-                    '&:hover': {
-                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.06)',
-                    },
-                  }}
-                >
-                  <SettingsIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-
-              {/* Settings Menu Popup */}
-              <Menu
-                anchorEl={settingsAnchorEl}
-                open={isSettingsMenuOpen}
-                onClose={() => setSettingsAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                slotProps={{
-                  paper: {
-                    elevation: 4,
-                    sx: {
-                      borderRadius: '14px',
-                      mt: 1.5,
-                      minWidth: 200,
-                      padding: '4px',
-                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                      color: isDark ? '#ffffff' : '#0f172a',
-                      border: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
-                    },
-                  },
-                }}
-              >
-                {(checkPermission('branch') || checkPermission('office')) && (
-                  <MenuItem
-                    onClick={() => {
-                      setSettingsAnchorEl(null);
-                      navigate('/office');
-                    }}
-                    sx={{ borderRadius: '8px', py: 1 }}
-                  >
-                    Office Settings 
-                  </MenuItem>
-                )}
-                {(checkPermission('role') || checkPermission('roles')) && (
-                  <MenuItem
-                    onClick={() => {
-                      setSettingsAnchorEl(null);
-                      navigate('/roles');
-                    }}
-                    sx={{ borderRadius: '8px', py: 1 }}
-                  >
-                    Role & Permission Settings
-                  </MenuItem>
-                )}
-                {checkPermission('holiday') && (
-                  <MenuItem
-                    onClick={() => {
-                      setSettingsAnchorEl(null);
-                      navigate('/holiday');
-                    }}
-                    sx={{ borderRadius: '8px', py: 1 }}
-                  >
-                    Holiday Settings 
-                  </MenuItem>
-                )}
-                {checkPermission('department') && (
-                  <MenuItem
-                    onClick={() => {
-                      setSettingsAnchorEl(null);
-                      navigate('/department-settings');
-                    }}
-                    sx={{ borderRadius: '8px', py: 1 }}
-                  >
-                    Department Settings
-                  </MenuItem>
-                )}
-              </Menu>
-            </>
-          )}
-
-          {/* Dynamic Role Badge (Horizontal Inline Layout) */}
-          <Tooltip title={`Current Role: ${roleInfo?.name || 'Admin'}`}>
-            <button
-              onClick={(e) => setRoleAnchorEl(e.currentTarget)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border cursor-pointer transition-all duration-200 select-none ${
-                isDark
-                  ? 'bg-blue-950/40 border-blue-800/80 text-blue-300 hover:bg-blue-900/50'
-                  : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
-              }`}
-            >
-              <EngineeringIcon sx={{ fontSize: 18, color: isDark ? '#60a5fa' : '#2563eb' }} />
-              <span className="text-xs font-bold whitespace-nowrap hidden xs:inline">
-                {roleInfo?.name || 'Admin'}
-              </span>
-              <KeyboardArrowDownIcon sx={{ fontSize: 14, opacity: 0.7 }} />
-            </button>
-          </Tooltip>
-
-          {/* Role Menu Popup */}
-          <Menu
-            anchorEl={roleAnchorEl}
-            open={isRoleMenuOpen}
-            onClose={() => setRoleAnchorEl(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            slotProps={{
-              paper: {
-                elevation: 3,
-                sx: {
-                  borderRadius: '12px',
-                  mt: 1,
-                  minWidth: 160,
-                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                  color: isDark ? '#ffffff' : '#0f172a',
-                  border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
-                },
-              },
-            }}
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border select-none ${
+              isDark
+                ? 'bg-blue-950/40 border-blue-800/80 text-blue-300'
+                : 'bg-blue-50 border-blue-200 text-blue-700'
+            }`}
           >
-            <MenuItem onClick={() => setRoleAnchorEl(null)} selected>
-              <ListItemText primary="Admin Role" secondary="Full Access" />
-            </MenuItem>
-            <MenuItem onClick={() => setRoleAnchorEl(null)}>
-              <ListItemText primary="Manager View" />
-            </MenuItem>
-            <MenuItem onClick={() => setRoleAnchorEl(null)}>
-              <ListItemText primary="Employee View" />
-            </MenuItem>
-          </Menu>
-
+            <EngineeringIcon sx={{ fontSize: 18, color: isDark ? '#60a5fa' : '#2563eb' }} />
+            <span className="text-xs font-bold whitespace-nowrap">
+              {roleInfo?.name || 'Admin'}
+            </span>
+          </div>
+       
+          
           {/* User Initial Avatar Circle */}
           <Tooltip title={user?.name || 'User Profile'}>
             <button
               onClick={(e) => setAnchorEl(e.currentTarget)}
-              className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm flex items-center justify-center shadow-xs cursor-pointer transition-transform active:scale-95 focus:outline-none shrink-0"
+              className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm flex items-center justify-center shadow-xs cursor-pointer transition-transform active:scale-95 focus:outline-none shrink-0 overflow-hidden"
             >
-              {userInitial}
+              {userAvatarSrc ? (
+                <img
+                  src={userAvatarSrc}
+                  alt={user?.name || 'User'}
+                  className="w-full h-full object-cover"
+                  onError={() => setAvatarImgError(true)}
+                />
+              ) : (
+                userInitial
+              )}
             </button>
           </Tooltip>
 
@@ -883,22 +856,114 @@ export default function Navbar({
                 sx: {
                   borderRadius: '14px',
                   mt: 1.5,
-                  minWidth: 220,
-                  padding: '4px',
+                  minWidth: 280,
+                  maxWidth: 320,
+                  padding: '6px',
                   backgroundColor: isDark ? '#1e293b' : '#ffffff',
                   color: isDark ? '#ffffff' : '#0f172a',
                   border: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
                 },
               },
+              list: {
+                sx: {
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  padding: '6px',
+                },
+              },
             }}
           >
-            <div className="px-4 py-2.5">
-              <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                {user?.name || 'Administrator'}
-              </p>
-              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                {user?.email || 'admin@company.com'}
-              </p>
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 mb-1.5 border border-slate-100 dark:border-slate-700/50">
+              <div className="flex items-center gap-3">
+                <div className="relative shrink-0">
+                  {userAvatarSrc ? (
+                    <img
+                      src={userAvatarSrc}
+                      alt={user?.name || 'User'}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-blue-500/40 shadow-xs"
+                      onError={() => setAvatarImgError(true)}
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-blue-600 text-white font-bold text-lg flex items-center justify-center shadow-xs">
+                      {userInitial}
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    {user?.name || 'Administrator'}
+                  </p>
+                  <p className={`text-xs truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {user?.email || 'admin@company.com'}
+                  </p>
+                  {user?.emp_id && (
+                    <span className="inline-block mt-0.5 px-1.5 py-0.2 text-[10px] font-semibold rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                      {user.emp_id}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* User Profile Summary Card */}
+              <div className="mt-2.5 pt-2 border-t border-slate-200 dark:border-slate-700/60 text-xs space-y-1">
+                {(user?.designations || user?.designation) && (
+                  <div className="flex justify-between items-center gap-2">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Designation:</span>
+                    <span className={`font-semibold truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                      {user.designations || user.designation}
+                    </span>
+                  </div>
+                )}
+                {user?.department && (
+                  <div className="flex justify-between items-center gap-2">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Department:</span>
+                    <span className={`font-semibold truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                      {user.department}
+                    </span>
+                  </div>
+                )}
+                {user?.work_shift && (
+                  <div className="flex justify-between items-center gap-2">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Shift:</span>
+                    <span className={`font-semibold truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                      {user.work_shift}
+                    </span>
+                  </div>
+                )}
+                {user?.mobile && (
+                  <div className="flex justify-between items-center gap-2">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Mobile:</span>
+                    <span className={`font-semibold truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                      {(user?.mobileCountryCode || user?.country_code || '') + ' ' + user.mobile}
+                    </span>
+                  </div>
+                )}
+                {user?.gender && (
+                  <div className="flex justify-between items-center gap-2">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Gender:</span>
+                    <span className={`font-semibold capitalize truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                      {user.gender}
+                    </span>
+                  </div>
+                )}
+                {user?.date_of_joining && (
+                  <div className="flex justify-between items-center gap-2">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Joined:</span>
+                    <span className={`font-semibold truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                      {new Date(user.date_of_joining).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                )}
+                {user?.address && (
+                  <div className="flex justify-between items-start gap-2 pt-0.5">
+                    <span className={`shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Address:</span>
+                    <span className={`font-semibold text-right line-clamp-2 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                      {user.address}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <Divider sx={{ my: 0.5, borderColor: isDark ? '#334155' : '#f1f5f9' }} />
@@ -916,12 +981,6 @@ export default function Navbar({
               <ListItemText primary={isDark ? 'Light Mode' : 'Dark Mode'} />
             </MenuItem>
 
-            <MenuItem onClick={() => setAnchorEl(null)} sx={{ borderRadius: '8px', py: 1 }}>
-              <ListItemIcon sx={{ color: isDark ? '#94a3b8' : '#64748b' }}>
-                <PersonIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText primary="Account Profile" />
-            </MenuItem>
 
             {logout && (
               <MenuItem
@@ -969,17 +1028,28 @@ export default function Navbar({
                     : '0 10px 25px -5px rgba(0, 0, 0, 0.12)',
                 },
               },
+              list: {
+                sx: {
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  padding: '4px',
+                },
+              },
             }}
           >
             {activeDropdownNav?.dropdownItems?.map((subItem) => {
-              const isSubActive = location.pathname === subItem.path;
+              const isSubActive =
+                activeTab === subItem.label ||
+                location.pathname === subItem.path ||
+                (subItem.path !== '/home' && location.pathname.startsWith(subItem.path));
               return (
                 <MenuItem
                   key={subItem.label}
                   selected={isSubActive}
                   onClick={() => {
                     setNavDropdownAnchorEl(null);
-                    setActiveTab(activeDropdownNav.label);
+                    setActiveTab(subItem.label);
                     if (subItem.path) {
                       navigate(subItem.path);
                     }
@@ -990,11 +1060,17 @@ export default function Navbar({
                     px: 2,
                     fontWeight: isSubActive ? 700 : 500,
                     backgroundColor: isSubActive
-                      ? isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(37, 99, 235, 0.1)'
+                      ? isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(37, 99, 235, 0.12)'
                       : 'transparent',
                     color: isSubActive
                       ? isDark ? '#60a5fa' : '#2563eb'
                       : isDark ? '#e2e8f0' : '#334155',
+                    '&.Mui-selected': {
+                      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(37, 99, 235, 0.12)',
+                      '&:hover': {
+                        backgroundColor: isDark ? 'rgba(59, 130, 246, 0.35)' : 'rgba(37, 99, 235, 0.18)',
+                      },
+                    },
                     '&:hover': {
                       backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(37, 99, 235, 0.08)',
                     },
@@ -1037,9 +1113,7 @@ export default function Navbar({
         {/* Drawer Header Banner */}
         <div className="p-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-amber-500 shadow-sm">
-              <LocationOnIcon sx={{ fontSize: 20, color: '#f97316' }} />
-            </div>
+            <img src="/favicon.svg" alt="Logo" className="w-9 h-9 object-contain" />
             <div>
               <h2 className="text-sm font-extrabold leading-tight">Employee Portal</h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">Navigation Menu</p>
@@ -1166,6 +1240,118 @@ export default function Navbar({
           )}
         </div>
       </Drawer>
+
+      {/* Account Profile Details Dialog */}
+      <Dialog
+        open={profileDialogOpen}
+        onClose={() => setProfileDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            backgroundColor: isDark ? '#1e293b' : '#ffffff',
+            color: isDark ? '#ffffff' : '#0f172a',
+          },
+        }}
+      >
+        <DialogTitle sx={{ m: 0, p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+          <div className="flex items-center gap-2 font-bold text-lg">
+            <PersonIcon sx={{ color: '#3b82f6' }} />
+            <span>Account Profile</span>
+          </div>
+          <IconButton onClick={() => setProfileDialogOpen(false)} size="small" sx={{ color: isDark ? '#94a3b8' : '#64748b' }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: isDark ? '#334155' : '#e2e8f0', p: 3 }}>
+          <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 mb-6 border border-slate-200 dark:border-slate-700">
+            {userAvatarSrc ? (
+              <img
+                src={userAvatarSrc}
+                alt={user?.name || 'User'}
+                className="w-20 h-20 rounded-full object-cover border-4 border-blue-500/20 shadow-md"
+                onError={() => setAvatarImgError(true)}
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-2xl flex items-center justify-center shadow-md">
+                {userInitial}
+              </div>
+            )}
+            <div className="text-center sm:text-left flex-1">
+              <h3 className="text-xl font-bold">{user?.name || 'Administrator'}</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{user?.email || 'admin@company.com'}</p>
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
+                {user?.emp_id && (
+                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                    ID: {user.emp_id}
+                  </span>
+                )}
+                {(user?.designations || user?.designation) && (
+                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
+                    {user.designations || user.designation}
+                  </span>
+                )}
+                {user?.department && (
+                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+                    {user.department}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Full Name</p>
+              <p className="font-semibold text-sm">{user?.name || 'N/A'}</p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Email Address</p>
+              <p className="font-semibold text-sm truncate">{user?.email || 'N/A'}</p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Designation</p>
+              <p className="font-semibold text-sm">{user?.designations || user?.designation || 'N/A'}</p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Department</p>
+              <p className="font-semibold text-sm">{user?.department || 'N/A'}</p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Mobile Number</p>
+              <p className="font-semibold text-sm">
+                {user?.mobile ? `${user?.mobileCountryCode || user?.country_code || ''} ${user.mobile}` : 'N/A'}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Gender</p>
+              <p className="font-semibold text-sm capitalize">{user?.gender || 'N/A'}</p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Work Shift</p>
+              <p className="font-semibold text-sm">{user?.work_shift || 'N/A'}</p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Date of Joining</p>
+              <p className="font-semibold text-sm">
+                {user?.date_of_joining
+                  ? new Date(user.date_of_joining).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                  : 'N/A'}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 sm:col-span-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Address</p>
+              <p className="font-semibold text-sm">{user?.address || 'N/A'}</p>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`, p: 2 }}>
+          <Button onClick={() => setProfileDialogOpen(false)} variant="contained" color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
