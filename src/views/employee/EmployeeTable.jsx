@@ -34,6 +34,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { EmployeeRoute } from '../../routes/employee/employee.route.js';
+import { useAuth } from '../../contexts/AuthContext.jsx';
 
 const fuzzyFilter = (row, columnId, value, addMeta) => {
   const cellVal = formatCellText(row.getValue(columnId));
@@ -72,7 +73,7 @@ export default function EmployeeTable({
   const [employees, setEmployees] = useState([]);
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [loading, setLoading] = useState(false);
-
+  const { hasPermission } = useAuth();
   // Pagination state
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -194,7 +195,7 @@ export default function EmployeeTable({
           const name = formatCellText(row.original.name);
           const email = formatCellText(row.original.email);
           const img = typeof row.original.image === 'string' && row.original.image !== 'default.png' ? row.original.image : row.original.avatar;
-          console.log(img,"Sasasasasasasasa")
+          console.log(img, "Sasasasasasasasa")
           return (
             <div className="flex items-center gap-3 min-w-[180px]">
               <Avatar
@@ -232,14 +233,14 @@ export default function EmployeeTable({
           //     {formatCellText(row.original.manager_id?.mobile ?? row.original.mobile ?? (row.original.mobile ? `ID: ${row.original.manager_id}` : null))}
           //   </span>
           // </>
-           <div>
-                <div className={`font-bold text-xs whitespace-nowrap ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  {row.original.manager_id?.name}
-                </div>
-                <div className={`text-[11px] font-semibold whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
-                  {row.original.manager_id?.email}
-                </div>
-              </div>
+          <div>
+            <div className={`font-bold text-xs whitespace-nowrap ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              {row.original.manager_id?.name}
+            </div>
+            <div className={`text-[11px] font-semibold whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
+              {row.original.manager_id?.email}
+            </div>
+          </div>
         ),
       }),
       columnHelper.accessor('employee_id', {
@@ -680,33 +681,21 @@ export default function EmployeeTable({
         header: 'ACTIONS',
         cell: ({ row }) => (
           <div className="flex items-center justify-end gap-1 min-w-[110px]">
-            {/* <Tooltip title="View Details">
-              <IconButton
-                size="small"
-                onClick={() => onViewClick && onViewClick(row.original)}
-                sx={{
-                  color: isDark ? '#818cf8' : '#0f172a',
-                  '&:hover': { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : '#e2e8f0' },
-                }}
-              >
-                <VisibilityIcon fontSize="small" />
-              </IconButton>
-            </Tooltip> */}
+            {hasPermission('employee', 'edit') && (
+              <Tooltip title="Edit Profile">
+                <IconButton
+                  size="small"
+                  onClick={() => onEditClick && onEditClick(row.original)}
+                  sx={{
+                    color: isDark ? '#fbbf24' : '#d97706',
+                    '&:hover': { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7' },
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>)}
 
-            <Tooltip title="Edit Profile">
-              <IconButton
-                size="small"
-                onClick={() => onEditClick && onEditClick(row.original)}
-                sx={{
-                  color: isDark ? '#fbbf24' : '#d97706',
-                  '&:hover': { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7' },
-                }}
-              >
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Delete Employee">
+           { hasPermission('employee', 'delete') && (<Tooltip title="Delete Employee">
               <IconButton
                 size="small"
                 onClick={() => onDeleteClick && onDeleteClick(row.original)}
@@ -717,7 +706,7 @@ export default function EmployeeTable({
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
-            </Tooltip>
+            </Tooltip>)}
           </div>
         ),
       }),

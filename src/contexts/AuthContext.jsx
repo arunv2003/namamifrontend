@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import Cookies from 'js-cookie';
 import { EmployeeRoute } from '../routes/auth/login.route.js';
 import { toast } from 'react-toastify';
@@ -22,8 +22,12 @@ export const AuthProvider = ({ children }) => {
   const [roleInfo, setRoleInfo] = useState(null);
   const [permissions, setPermissions] = useState(null);
   const [loadingPermissions, setLoadingPermissions] = useState(false);
+  const fetchedRef = useRef(false);
 
-  const fetchPermissions = useCallback(async () => {
+  const fetchPermissions = useCallback(async (force = false) => {
+    if (fetchedRef.current && !force) return;
+    fetchedRef.current = true;
+
     try {
       setLoadingPermissions(true);
       const res = await EmployeeRoute.getPermissions();
@@ -41,9 +45,12 @@ export const AuthProvider = ({ children }) => {
         }
         setPermissions(permData);
         return res.data;
+      } else {
+        setPermissions({});
       }
     } catch (err) {
       console.error('Failed to fetch permissions:', err);
+      setPermissions({});
     } finally {
       setLoadingPermissions(false);
     }
@@ -55,7 +62,8 @@ export const AuthProvider = ({ children }) => {
       Cookies.set('accessToken', token, { expires: 1, path: '/' });
     }
     Cookies.set('user_session', JSON.stringify(userData), { expires: 1, path: '/' });
-    fetchPermissions();
+    fetchedRef.current = false;
+    fetchPermissions(true);
     return userData;
   };
 
@@ -74,10 +82,120 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setRoleInfo(null);
       setPermissions(null);
+      fetchedRef.current = false;
       Cookies.remove('accessToken', { path: '/' });
       Cookies.remove('user_session', { path: '/' });
     }
   };
+
+  useEffect(() => {
+    if (user && !fetchedRef.current) {
+      fetchPermissions();
+    }
+  }, [user, fetchPermissions]);
+
+  const hasPermission = useCallback(
+    (moduleName, actionName, subModuleName) => {
+      if (!permissions) return false;
+
+      let actualPerms = permissions;
+      while (actualPerms && actualPerms.permission && typeof actualPerms.permission === 'object') {
+        actualPerms = actualPerms.permission;
+      }
+
+      if (!moduleName) return true;
+
+      const lowerModule = moduleName.toLowerCase();
+
+      const normalizeActionKeys = (act) => {
+        if (!act) return [];
+        const lowerAct = act.toLowerCase();
+        if (lowerAct === 'create' || lowerAct === 'add') return ['add', 'create'];
+        if (lowerAct === 'edit' || lowerAct === 'update') return ['edit', 'update'];
+        if (lowerAct === 'delete' || lowerAct === 'remove') return ['delete', 'remove'];
+        if (lowerAct === 'view' || lowerAct === 'read') return ['allView', 'ownView', 'view', 'read'];
+        if (lowerAct === 'allview') return ['allView', 'view', 'read'];
+        if (lowerAct === 'ownview') return ['ownView', 'view', 'read'];
+        return [act, lowerAct];
+      };
+
+      const checkActionOnNode = (node, act) => {
+        if (!node || typeof node !== 'object') return false;
+        if (!act) {
+          return Object.values(node).some((val) => {
+            if (typeof val === 'boolean') return val;
+            if (typeof val === 'object' && val !== null) return checkActionOnNode(val, null);
+            return false;
+          });
+        }
+
+        const validKeys = normalizeActionKeys(act);
+        for (const k of Object.keys(node)) {
+          if (validKeys.some((vk) => vk.toLowerCase() === k.toLowerCase())) {
+            if (node[k] === true) return true;
+          }
+        }
+        return false;
+      };
+
+      // 1. Find top-level module match
+      const topMatchKey = Object.keys(actualPerms).find((k) => {
+        const lk = k.toLowerCase();
+        return (
+          lk === lowerModule ||
+          (lowerModule === 'employees' && lk === 'employee') ||
+          (lowerModule === 'employee' && lk === 'employees') ||
+          (lowerModule === 'roles' && lk === 'role') ||
+          (lowerModule === 'role' && lk === 'roles') ||
+          (lowerModule === 'office' && lk === 'branch') ||
+          (lowerModule === 'branch' && lk === 'office')
+        );
+      });
+
+      let targetModule = topMatchKey ? actualPerms[topMatchKey] : null;
+
+      // 2. Search sub-modules if top-level module was not directly found
+      if (!targetModule) {
+        for (const pKey of Object.keys(actualPerms)) {
+          const pVal = actualPerms[pKey];
+          if (pVal && typeof pVal === 'object') {
+            const subKeyMatch = Object.keys(pVal).find((sk) => sk.toLowerCase() === lowerModule);
+            if (subKeyMatch) {
+              targetModule = pVal[subKeyMatch];
+              break;
+            }
+          }
+        }
+      }
+
+      if (!targetModule) return false;
+
+      // 3. Target specific sub-module if requested
+      if (subModuleName && typeof targetModule === 'object') {
+        const subMatchKey = Object.keys(targetModule).find((sk) => sk.toLowerCase() === subModuleName.toLowerCase());
+        if (subMatchKey) {
+          targetModule = targetModule[subMatchKey];
+        } else {
+          return false;
+        }
+      }
+
+      // 4. Evaluate action permission
+      if (targetModule && typeof targetModule === 'object') {
+        if (checkActionOnNode(targetModule, actionName)) return true;
+
+        return Object.values(targetModule).some((subVal) => {
+          if (subVal && typeof subVal === 'object') {
+            return checkActionOnNode(subVal, actionName);
+          }
+          return false;
+        });
+      }
+
+      return false;
+    },
+    [permissions]
+  );
 
   return (
     <AuthContext.Provider
@@ -87,6 +205,7 @@ export const AuthProvider = ({ children }) => {
         permissions,
         loadingPermissions,
         fetchPermissions,
+        hasPermission,
         login,
         logout,
         isAuthenticated: !!user,

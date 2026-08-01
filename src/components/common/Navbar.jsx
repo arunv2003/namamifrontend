@@ -345,8 +345,8 @@ export default function Navbar({
       path: '/tasks/all',
       icon: <AssignmentIcon fontSize="small" />,
       subModules: {
-        taskAll: { label: 'Task All', path: '/tasks/all' },
-        teamTask: { label: 'Task', path: '/tasks/team' },
+        taskAll: { label: 'All Tasks', path: '/tasks/all' },
+        teamTask: { label: 'Team Tasks', path: '/tasks/team' },
         taskCustomer: { label: 'Task Customer', path: '/tasks/task-customer' },
         onboardingTask: { label: 'Onboarding Task', path: '/tasks/task-on-boarding' },
         deletedTasks: { label: 'Deleted Tasks', path: '/tasks/deleted' },

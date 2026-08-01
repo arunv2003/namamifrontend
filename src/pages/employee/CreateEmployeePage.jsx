@@ -417,7 +417,7 @@ export default function CreateEmployeePage() {
     };
 
     const payload = {
-      name: formData.name || 'Employee Name',
+      name: formData.name,
       identity: formData.identity || `EMP-${Date.now().toString().slice(-4)}`,
       email: generatedEmail,
       mobile: validMobile,
@@ -430,13 +430,13 @@ export default function CreateEmployeePage() {
       manager_id: (formData.manager_id !== '' && formData.manager_id !== null && formData.manager_id !== undefined && !isNaN(Number(formData.manager_id)))
         ? Number(formData.manager_id)
         : (formData.reportingManager && !isNaN(Number(formData.reportingManager)) ? Number(formData.reportingManager) : undefined),
-      license: formData.license || 'Standard',
+      license: formData.license,
       password: validPassword,
       department: 'Engineering',
       designations: resolvedDesignation,
-      work_shift: formData.workingShift || 'Day Shift',
+      work_shift: formData.workingShift,
       status: 'Active',
-      work_location: formData.homeLocation || 'Head Office',
+      work_location: formData.homeLocation,
       emp_type: 'Full Time',
       business_unit: 'Core',
       cost_center: 'CC-101',
@@ -445,9 +445,9 @@ export default function CreateEmployeePage() {
       last_desktop_started_at: new Date(),
       last_Sync_desktop_at: new Date(),
       last_Sync_mobile: new Date(),
-      last_location: formData.homeLocation || 'Office',
-      location: formData.homeLocation || 'Office',
-      address: formData.address || 'N/A',
+      last_location: formData.homeLocation,
+      location: formData.homeLocation,
+      address: formData.address,
       date_of_birth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : new Date('1995-01-01'),
       date_of_joining: formData.dateOfJoining ? new Date(formData.dateOfJoining) : new Date(),
       gender: formData.gender || null,

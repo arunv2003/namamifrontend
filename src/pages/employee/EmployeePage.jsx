@@ -84,8 +84,11 @@ export const ALL_EMPLOYEE_COLUMNS = [
 
 export default function EmployeePage() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
+
   const { isDark } = useThemeMode();
+
+  console.log("Permission", hasPermission('employee', 'add'));
 
   const [employees, setEmployees] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -297,35 +300,37 @@ export default function EmployeePage() {
             </div>
 
             {/* Mobile / Tablet Primary Action Button (Shown when screen < xl) */}
-            <div className="xl:hidden flex-shrink-0">
-              <Button
-                onClick={() => navigate('/create-employee')}
-                variant="contained"
-                size="small"
-                startIcon={<AddIcon />}
-                sx={{
-                  background: isDark
-                    ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)'
-                    : '#0f172a',
-                  color: '#ffffff',
-                  borderRadius: '10px',
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  px: 1.5,
-                  py: 0.75,
-                  boxShadow: isDark
-                    ? '0 6px 16px -4px rgba(99, 102, 241, 0.5)'
-                    : '0 4px 10px rgba(15, 23, 42, 0.2)',
-                  '&:hover': {
+            {hasPermission('employee', 'add') && (
+              <div className="xl:hidden flex-shrink-0">
+                <Button
+                  onClick={() => navigate('/create-employee')}
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  sx={{
                     background: isDark
-                      ? 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)'
-                      : '#1e293b',
-                  },
-                }}
-              >
-                Add
-              </Button>
-            </div>
+                      ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)'
+                      : '#0f172a',
+                    color: '#ffffff',
+                    borderRadius: '10px',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    px: 1.5,
+                    py: 0.75,
+                    boxShadow: isDark
+                      ? '0 6px 16px -4px rgba(99, 102, 241, 0.5)'
+                      : '0 4px 10px rgba(15, 23, 42, 0.2)',
+                    '&:hover': {
+                      background: isDark
+                        ? 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)'
+                        : '#1e293b',
+                    },
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Controls: Search & Filters */}
@@ -413,33 +418,35 @@ export default function EmployeePage() {
               </Tooltip>
 
               {/* Desktop Add Employee Button (Shown when screen >= xl) */}
-              <div className="hidden xl:block flex-shrink-0">
-                <Button
-                  onClick={() => navigate('/create-employee')}
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  sx={{
-                    background: isDark
-                      ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)'
-                      : '#0f172a',
-                    color: '#ffffff',
-                    borderRadius: '12px',
-                    textTransform: 'none',
-                    fontWeight: 700,
-                    padding: '8px 20px',
-                    boxShadow: isDark
-                      ? '0 8px 20px -4px rgba(99, 102, 241, 0.5)'
-                      : '0 4px 12px rgba(15, 23, 42, 0.2)',
-                    '&:hover': {
+              {hasPermission('employee', 'add') && (
+                <div className="hidden xl:block flex-shrink-0">
+                  <Button
+                    onClick={() => navigate('/create-employee')}
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    sx={{
                       background: isDark
-                        ? 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)'
-                        : '#1e293b',
-                    },
-                  }}
-                >
-                  Add Employee
-                </Button>
-              </div>
+                        ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)'
+                        : '#0f172a',
+                      color: '#ffffff',
+                      borderRadius: '12px',
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      padding: '8px 20px',
+                      boxShadow: isDark
+                        ? '0 8px 20px -4px rgba(99, 102, 241, 0.5)'
+                        : '0 4px 12px rgba(15, 23, 42, 0.2)',
+                      '&:hover': {
+                        background: isDark
+                          ? 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)'
+                          : '#1e293b',
+                      },
+                    }}
+                  >
+                    Add Employee
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
