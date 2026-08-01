@@ -23,6 +23,8 @@ import {
 import { useThemeMode } from '../../contexts/ThemeContext';
 
 import TablePaginationComponent from '../../components/common/TablePaginationComponent';
+import TableSkeleton from '../../components/common/TableSkeleton';
+import LazyAvatar from '../../components/common/LazyAvatar';
 
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -31,6 +33,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { CustomerRoute } from '../../routes/customers/customer.route.js';
+import { useAuth } from '../../contexts/AuthContext.jsx';
 
 const columnHelper = createColumnHelper();
 
@@ -60,7 +63,7 @@ export default function CustomerTable({
   const [customers, setCustomers] = useState([]);
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [loading, setLoading] = useState(false);
-
+  const { hasPermission } = useAuth();
   // Server-side pagination state
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -313,7 +316,7 @@ export default function CustomerTable({
         header: 'ACTIONS',
         cell: ({ row }) => (
           <div className="flex items-center justify-end gap-1 min-w-[110px]">
-            <Tooltip title="View Details">
+           {hasPermission("customer", "view") && <Tooltip title="View Details">
               <IconButton
                 size="small"
                 onClick={() => onViewClick && onViewClick(row.original)}
@@ -324,9 +327,9 @@ export default function CustomerTable({
               >
                 <VisibilityIcon fontSize="small" />
               </IconButton>
-            </Tooltip>
+            </Tooltip>}
 
-            <Tooltip title="Edit Customer">
+            {hasPermission("customer", "edit") && <Tooltip title="Edit Customer">
               <IconButton
                 size="small"
                 onClick={() => onEditClick && onEditClick(row.original)}
@@ -337,9 +340,9 @@ export default function CustomerTable({
               >
                 <EditIcon fontSize="small" />
               </IconButton>
-            </Tooltip>
+            </Tooltip>}
 
-            <Tooltip title="Delete Customer">
+            {hasPermission("customer", "delete") && <Tooltip title="Delete Customer">
               <IconButton
                 size="small"
                 onClick={() => onDeleteClick && onDeleteClick(row.original)}
@@ -350,12 +353,12 @@ export default function CustomerTable({
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
-            </Tooltip>
+            </Tooltip>}
           </div>
         ),
       }),
     ],
-    [onViewClick, onEditClick, onDeleteClick, isDark]
+    [onViewClick, onEditClick, onDeleteClick, isDark,hasPermission]
   );
 
   const table = useReactTable({
@@ -377,6 +380,17 @@ export default function CustomerTable({
   });
 
   const currentPageRows = table.getRowModel().rows;
+
+  if (loading) {
+    return (
+      <TableSkeleton
+        columns={columns.length}
+        rows={rowsPerPage}
+        maxHeight={maxHeight}
+        avatarColIndex={0}
+      />
+    );
+  }
 
   return (
     <Paper

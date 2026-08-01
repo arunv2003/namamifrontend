@@ -79,7 +79,7 @@ const ALL_TASK_COLUMNS = [
 
 export default function TaskPage() {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const { isDark } = useThemeMode();
 
   if (location.pathname.includes("/details")) {
@@ -92,6 +92,14 @@ export default function TaskPage() {
   const isTeamView = location.pathname.includes("/team");
   const isOnboardingView = location.pathname.includes("/task-on-boarding");
   const isDeletedView = location.pathname.includes("/deleted");
+
+  const currentSubModule = useMemo(() => {
+    if (isCustomerView) return "taskCustomer";
+    if (isOnboardingView) return "onboardingTask";
+    if (isTeamView) return "teamTask";
+    if (isDeletedView) return "deletedTasks";
+    return "taskAll";
+  }, [isCustomerView, isOnboardingView, isTeamView, isDeletedView]);
 
   const getPageHeaderTitle = () => {
     if (isCustomerView) return "Customer Tasks";
@@ -112,6 +120,7 @@ export default function TaskPage() {
   };
 
   const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPriority, setSelectedPriority] = useState("All");
@@ -207,37 +216,46 @@ export default function TaskPage() {
   };
 
   const fetchTasks = async () => {
-    const params = {
-      page: page + 1,
-      limit: rowsPerPage,
-      search: searchTerm || undefined,
-      status:
-        selectedStatus !== "All" ? selectedStatus.toLowerCase() : undefined,
-      priority:
-        selectedPriority !== "All" ? selectedPriority.toLowerCase() : undefined,
-      taskType: selectedTaskType !== "All" ? selectedTaskType : undefined,
-    };
+    setLoading(true);
+    try {
+      const params = {
+        page: page + 1,
+        limit: rowsPerPage,
+        search: searchTerm || undefined,
+        status:
+          selectedStatus !== "All" ? selectedStatus.toLowerCase() : undefined,
+        priority:
+          selectedPriority !== "All" ? selectedPriority.toLowerCase() : undefined,
+        taskType: selectedTaskType !== "All" ? selectedTaskType : undefined,
+      };
 
-    let res;
-    if (isCustomerView) {
-      res = await TaskRoute.getAllCustomerTasks(params);
-    } else if (isTeamView) {
-      res = await TaskRoute.getTeamTask(params);
-    } else {
-      res = await TaskRoute.getAllTasks(params);
-    }
+      let res;
+      if (isCustomerView) {
+        res = await TaskRoute.getAllCustomerTasks(params);
+      } else if (isTeamView) {
+        res = await TaskRoute.getTeamTask(params);
+      } else {
+        res = await TaskRoute.getAllTasks(params);
+      }
 
-    if (res?.success && res.data) {
-      const taskList = Array.isArray(res.data) ? res.data : (res.data.tasks || []);
-      setTasks(taskList);
-      setTotalItems(
-        res.data.totalItems !== undefined
-          ? res.data.totalItems
-          : taskList.length,
-      );
-    } else {
+      if (res?.success && res.data) {
+        const taskList = Array.isArray(res.data) ? res.data : (res.data.tasks || []);
+        setTasks(taskList);
+        setTotalItems(
+          res.data.totalItems !== undefined
+            ? res.data.totalItems
+            : taskList.length,
+        );
+      } else {
+        setTasks([]);
+        setTotalItems(0);
+      }
+    } catch (err) {
+      console.error("Fetch tasks error:", err);
       setTasks([]);
       setTotalItems(0);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -269,9 +287,8 @@ export default function TaskPage() {
 
   return (
     <div
-      className={`min-h-screen lg:h-screen lg:max-h-screen overflow-y-auto lg:overflow-hidden flex flex-col transition-colors duration-200 ${
-        isDark ? "bg-slate-950 text-slate-100" : "bg-slate-100 text-slate-900"
-      }`}
+      className={`min-h-screen lg:h-screen lg:max-h-screen overflow-y-auto lg:overflow-hidden flex flex-col transition-colors duration-200 ${isDark ? "bg-slate-950 text-slate-100" : "bg-slate-100 text-slate-900"
+        }`}
     >
       {/* Header Navigation */}
       <Navbar user={user} logout={logout} />
@@ -280,11 +297,10 @@ export default function TaskPage() {
       <main className="flex-1 min-h-0 w-full px-3 py-3 sm:px-4 flex flex-col space-y-3 overflow-y-auto lg:overflow-hidden">
         {/* Toolbar & Filter Bar with Header Title */}
         <div
-          className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 sm:gap-4 flex-shrink-0 transition-all duration-200 ${
-            isDark
+          className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 sm:gap-4 flex-shrink-0 transition-all duration-200 ${isDark
               ? "bg-slate-900/70 border-slate-800/80 backdrop-blur-xl shadow-xl"
               : "bg-white border-slate-200 shadow-sm"
-          }`}
+            }`}
         >
           {/* Header Title Banner & Mobile Action Button */}
           <div className="flex items-center justify-between gap-3 flex-shrink-0">
@@ -302,35 +318,37 @@ export default function TaskPage() {
             </div>
 
             {/* Mobile / Tablet Primary Action Button (Shown when screen < xl) */}
-            <div className="xl:hidden flex-shrink-0">
-              <Button
-                onClick={handleOpenAddModal}
-                variant="contained"
-                size="small"
-                startIcon={<AddIcon />}
-                sx={{
-                  background: isDark
-                    ? "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
-                    : "#0f172a",
-                  color: "#ffffff",
-                  borderRadius: "10px",
-                  textTransform: "none",
-                  fontWeight: 700,
-                  px: 1.5,
-                  py: 0.75,
-                  boxShadow: isDark
-                    ? "0 6px 16px -4px rgba(99, 102, 241, 0.5)"
-                    : "0 4px 10px rgba(15, 23, 42, 0.2)",
-                  "&:hover": {
+            {hasPermission("task", "add", currentSubModule) && (
+              <div className="xl:hidden flex-shrink-0">
+                <Button
+                  onClick={handleOpenAddModal}
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  sx={{
                     background: isDark
-                      ? "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)"
-                      : "#1e293b",
-                  },
-                }}
-              >
-                Create
-              </Button>
-            </div>
+                      ? "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
+                      : "#0f172a",
+                    color: "#ffffff",
+                    borderRadius: "10px",
+                    textTransform: "none",
+                    fontWeight: 700,
+                    px: 1.5,
+                    py: 0.75,
+                    boxShadow: isDark
+                      ? "0 6px 16px -4px rgba(99, 102, 241, 0.5)"
+                      : "0 4px 10px rgba(15, 23, 42, 0.2)",
+                    "&:hover": {
+                      background: isDark
+                        ? "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)"
+                        : "#1e293b",
+                    },
+                  }}
+                >
+                  Create
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Controls: Search, Filters & Desktop Action Button */}
@@ -519,44 +537,48 @@ export default function TaskPage() {
               </Tooltip>
 
               {/* Desktop Create Task Button (Shown when screen >= xl) */}
-              <div className="hidden xl:block flex-shrink-0">
-                <Button
-                  onClick={handleOpenAddModal}
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  sx={{
-                    background: isDark
-                      ? "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
-                      : "#0f172a",
-                    color: "#ffffff",
-                    borderRadius: "12px",
-                    textTransform: "none",
-                    fontWeight: 700,
-                    padding: "8px 20px",
-                    boxShadow: isDark
-                      ? "0 8px 20px -4px rgba(99, 102, 241, 0.5)"
-                      : "0 4px 12px rgba(15, 23, 42, 0.2)",
-                    "&:hover": {
+              {hasPermission("task", "add", currentSubModule) && (
+                <div className="hidden xl:block flex-shrink-0">
+                  <Button
+                    onClick={handleOpenAddModal}
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    sx={{
                       background: isDark
-                        ? "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)"
-                        : "#1e293b",
-                    },
-                  }}
-                >
-                  Create Task
-                </Button>
-              </div>
+                        ? "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
+                        : "#0f172a",
+                      color: "#ffffff",
+                      borderRadius: "12px",
+                      textTransform: "none",
+                      fontWeight: 700,
+                      padding: "8px 20px",
+                      boxShadow: isDark
+                        ? "0 8px 20px -4px rgba(99, 102, 241, 0.5)"
+                        : "0 4px 12px rgba(15, 23, 42, 0.2)",
+                      "&:hover": {
+                        background: isDark
+                          ? "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)"
+                          : "#1e293b",
+                      },
+                    }}
+                  >
+                    Create Task
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Task Data Table */}
         <TaskTable
+          loading={loading}
           filteredTasks={tasks}
           totalData={totalItems}
           page={page}
           rowsPerPage={rowsPerPage}
           columnVisibility={columnVisibility}
+          subModuleName={currentSubModule}
           onPageChange={(e, newPage) => setPage(newPage)}
           onRowsPerPageChange={(e) => {
             setRowsPerPage(parseInt(e.target.value, 10));

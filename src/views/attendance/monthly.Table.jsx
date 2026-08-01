@@ -11,6 +11,8 @@ import {
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import { useThemeMode } from '../../contexts/ThemeContext';
 import { attendanceRoute } from '../../routes/attendance/attendance.route';
+import TableSkeleton from '../../components/common/TableSkeleton';
+import LazyAvatar from '../../components/common/LazyAvatar';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -357,12 +359,7 @@ export default function MonthlyAttendanceTable({ externalSearchTerm = '' }) {
       {/* Main Matrix Scroll Container */}
       <div className="flex-1 min-h-0 overflow-auto relative w-full">
         {loading ? (
-          <div className="flex flex-col items-center justify-center p-12 gap-3">
-            <CircularProgress size={32} />
-            <p className={`text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-              Loading monthly matrix data...
-            </p>
-          </div>
+          <TableSkeleton columns={12} rows={8} showPagination={false} avatarColIndex={0} />
         ) : employeeRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 gap-2 text-center">
             <CalendarMonthIcon sx={{ fontSize: 44, color: isDark ? '#475569' : '#94a3b8' }} />

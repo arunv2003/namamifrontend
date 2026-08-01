@@ -250,12 +250,8 @@ export default function BranchPage() {
 
         {/* Branch Table */}
         <div className="flex-1 min-h-0 flex flex-col relative">
-          {loading && (
-            <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[1px] z-20 flex items-center justify-center rounded-2xl">
-              <CircularProgress size={36} color="primary" />
-            </div>
-          )}
           <BranchTable
+            loading={loading}
             branches={branches}
             totalData={totalData}
             page={page}

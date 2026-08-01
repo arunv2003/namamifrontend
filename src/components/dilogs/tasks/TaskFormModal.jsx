@@ -13,6 +13,7 @@ import { TaskRoute } from "../../../routes/tasks/task.route.js";
 import { toast } from "react-toastify";
 import { TaskTypeRoute } from "../../../routes/tasks/task-type.js";
 import CreateCustomerModel from "../customer/CreateCustomer.Model";
+import { useAuth } from "../../../contexts/AuthContext.jsx";
 
 export default function TaskFormModal({
   open,
@@ -29,6 +30,7 @@ export default function TaskFormModal({
   const [taskForm, setTaskForm] = useState({});
   const [loadingFields, setLoadingFields] = useState(false);
   const [createCustomerModalOpen, setCreateCustomerModalOpen] = useState(false);
+  const {hasPermission} =useAuth()
 
   const activeFormFields =
     propFormFields && propFormFields.length > 0
@@ -707,7 +709,7 @@ export default function TaskFormModal({
                                 outline: "none",
                               }}
                             />
-                            <button
+                            {hasPermission("customer", "add") && <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -743,7 +745,7 @@ export default function TaskFormModal({
                               title="Add New Customer"
                             >
                               + Add New
-                            </button>
+                            </button>}
                           </div>
 
                           {/* Customer List */}

@@ -27,6 +27,8 @@ import { useThemeMode } from '../../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 
 import TablePaginationComponent from '../../components/common/TablePaginationComponent';
+import TableSkeleton from '../../components/common/TableSkeleton';
+import LazyAvatar from '../../components/common/LazyAvatar';
 
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -57,6 +59,7 @@ export default function TaskTable({
   getPriorityChipProps,
   maxHeight,
   columnVisibility = {},
+  loading = false,
 }) {
   const [sorting, setSorting] = useState([]);
   const { isDark } = useThemeMode();
@@ -540,10 +543,22 @@ export default function TaskTable({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    manualPagination: true,
+    pageCount: Math.ceil((totalCount || 0) / rowsPerPage) || 1,
   });
 
   const currentPageRows = table.getRowModel().rows;
+
+  if (loading) {
+    return (
+      <TableSkeleton
+        columns={columns.length}
+        rows={rowsPerPage}
+        maxHeight={maxHeight}
+        avatarColIndex={2}
+      />
+    );
+  }
 
   return (
     <Paper

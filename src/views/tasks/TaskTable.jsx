@@ -24,9 +24,12 @@ import {
 } from '@tanstack/react-table';
 import { rankItem } from '@tanstack/match-sorter-utils';
 import { useThemeMode } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 import TablePaginationComponent from '../../components/common/TablePaginationComponent';
+import TableSkeleton from '../../components/common/TableSkeleton';
+import LazyAvatar from '../../components/common/LazyAvatar';
 
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -57,9 +60,12 @@ export default function TaskTable({
   getPriorityChipProps,
   maxHeight,
   columnVisibility = {},
+  subModuleName,
+  loading = false,
 }) {
   const [sorting, setSorting] = useState([]);
   const { isDark } = useThemeMode();
+  const { hasPermission } = useAuth();
   const navigate = useNavigate();
   const totalCount = totalData !== undefined ? totalData : filteredTasks.length;
 
@@ -724,39 +730,62 @@ export default function TaskTable({
         header: "ACTIONS",
         cell: ({ row }) => (
           <div className="flex items-center justify-end gap-1 min-w-[110px]">
-            <Tooltip title="View Task Details">
-              <IconButton
-                size="small"
-                onClick={() => onViewClick && onViewClick(row.original)}
-                sx={{
-                  color: isDark ? "#818cf8" : "#4f46e5",
-                  "&:hover": {
-                    backgroundColor: isDark
-                      ? "rgba(99, 102, 241, 0.15)"
-                      : "rgba(79, 70, 229, 0.1)",
-                  },
-                }}
-              >
-                <VisibilityIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {hasPermission("task", "view", subModuleName) && (
+              <Tooltip title="View Task Details">
+                <IconButton
+                  size="small"
+                  onClick={() => onViewClick && onViewClick(row.original)}
+                  sx={{
+                    color: isDark ? "#818cf8" : "#4f46e5",
+                    "&:hover": {
+                      backgroundColor: isDark
+                        ? "rgba(99, 102, 241, 0.15)"
+                        : "rgba(79, 70, 229, 0.1)",
+                    },
+                  }}
+                >
+                  <VisibilityIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
 
-            <Tooltip title="Delete Task">
-              <IconButton
-                size="small"
-                onClick={() => onDeleteClick && onDeleteClick(row.original)}
-                sx={{
-                  color: isDark ? "#f87171" : "#dc2626",
-                  "&:hover": {
-                    backgroundColor: isDark
-                      ? "rgba(239, 68, 68, 0.15)"
-                      : "rgba(220, 38, 38, 0.1)",
-                  },
-                }}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {hasPermission("task", "edit", subModuleName) && (
+              <Tooltip title="Edit Task">
+                <IconButton
+                  size="small"
+                  onClick={() => onEditClick && onEditClick(row.original)}
+                  sx={{
+                    color: isDark ? "#fbbf24" : "#d97706",
+                    "&:hover": {
+                      backgroundColor: isDark
+                        ? "rgba(245, 158, 11, 0.15)"
+                        : "rgba(217, 119, 6, 0.1)",
+                    },
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {hasPermission("task", "delete", subModuleName) && (
+              <Tooltip title="Delete Task">
+                <IconButton
+                  size="small"
+                  onClick={() => onDeleteClick && onDeleteClick(row.original)}
+                  sx={{
+                    color: isDark ? "#f87171" : "#dc2626",
+                    "&:hover": {
+                      backgroundColor: isDark
+                        ? "rgba(239, 68, 68, 0.15)"
+                        : "rgba(220, 38, 38, 0.1)",
+                    },
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
           </div>
         ),
       }),
@@ -768,6 +797,8 @@ export default function TaskTable({
       onDeleteClick,
       getStatusChipProps,
       getPriorityChipProps,
+      hasPermission,
+      subModuleName,
     ],
   );
 
@@ -789,10 +820,22 @@ export default function TaskTable({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    manualPagination: true,
+    pageCount: Math.ceil((totalCount || 0) / rowsPerPage) || 1,
   });
 
   const currentPageRows = table.getRowModel().rows;
+
+  if (loading) {
+    return (
+      <TableSkeleton
+        columns={columns.length}
+        rows={rowsPerPage}
+        maxHeight={maxHeight}
+        avatarColIndex={2}
+      />
+    );
+  }
 
   return (
     <Paper

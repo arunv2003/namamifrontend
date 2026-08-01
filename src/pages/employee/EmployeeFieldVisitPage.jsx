@@ -876,11 +876,18 @@ const generateCalendarGrid = (month, year) => {
 
   // Previous month trailing days
   for (let i = firstDay - 1; i >= 0; i--) {
+    const dayNum = prevDaysInMonth - i;
+    const cellDate = new Date(year, month - 1, dayNum);
+    cellDate.setHours(0, 0, 0, 0);
+    const isFuture = cellDate > today;
+
     grid.push({
-      day: prevDaysInMonth - i,
+      day: dayNum,
+      monthOffset: -1,
       isCurrentMonth: false,
       isPrevMonth: true,
-      isFuture: true,
+      isFuture,
+      dateObj: cellDate,
     });
   }
 
@@ -892,8 +899,10 @@ const generateCalendarGrid = (month, year) => {
 
     grid.push({
       day: d,
+      monthOffset: 0,
       isCurrentMonth: true,
       isFuture,
+      dateObj: cellDate,
     });
   }
 
@@ -901,10 +910,17 @@ const generateCalendarGrid = (month, year) => {
   const targetTotal = grid.length > 35 ? 42 : 35;
   const fillCount = targetTotal - grid.length;
   for (let n = 1; n <= fillCount; n++) {
+    const cellDate = new Date(year, month + 1, n);
+    cellDate.setHours(0, 0, 0, 0);
+    const isFuture = cellDate > today;
+
     grid.push({
       day: n,
+      monthOffset: 1,
       isCurrentMonth: false,
       isNextMonth: true,
+      isFuture,
+      dateObj: cellDate,
     });
   }
 
@@ -1012,7 +1028,6 @@ export default function EmployeeFieldVisitPage() {
         date: formattedQueryDate,
         id: passedEmpId,
       });
-      console.log(res, "==============================================================================")
       if ((res?.success || res?.statusCode === 200) && res?.data) {
         const visitsData = Array.isArray(res.data) ? res.data : (res.data.visits ? res.data.visits : [res.data]);
         setApiVisits(visitsData);
@@ -1394,15 +1409,26 @@ export default function EmployeeFieldVisitPage() {
     }
   };
 
-  const handleSelectDay = (day) => {
+  const handleSelectDay = (item) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const dateObj = new Date(calendarYear, calendarMonth, day);
+
+    const dayNum = typeof item === 'object' ? item.day : item;
+    const monthOff = typeof item === 'object' && item.monthOffset !== undefined ? item.monthOffset : 0;
+
+    const dateObj = typeof item === 'object' && item.dateObj
+      ? new Date(item.dateObj)
+      : new Date(calendarYear, calendarMonth + monthOff, dayNum);
     dateObj.setHours(0, 0, 0, 0);
 
     if (dateObj > today) return;
 
-    setSelectedDay(day);
+    if (monthOff !== 0) {
+      setCalendarMonth(dateObj.getMonth());
+      setCalendarYear(dateObj.getFullYear());
+    }
+
+    setSelectedDay(dateObj.getDate());
     const formattedLabel = formatDateDDMMYYYY(dateObj);
 
     setCalendarDateLabel(formattedLabel);
@@ -1764,23 +1790,25 @@ export default function EmployeeFieldVisitPage() {
                       <div className="grid grid-cols-7 text-center text-xs gap-y-1">
                         {generateCalendarGrid(calendarMonth, calendarYear).map((item, idx) => {
                           const isSelected =
-                            item.isCurrentMonth &&
                             !item.isFuture &&
+                            item.isCurrentMonth &&
                             selectedDay === item.day;
 
-                          const isDisabled = !item.isCurrentMonth || item.isFuture;
+                          const isDisabled = item.isFuture;
 
                           return (
                             <button
                               key={idx}
                               type="button"
                               disabled={isDisabled}
-                              onClick={() => !isDisabled && handleSelectDay(item.day)}
+                              onClick={() => !isDisabled && handleSelectDay(item)}
                               className={`w-7 h-7 mx-auto flex items-center justify-center text-xs transition-all ${
                                 isDisabled
                                   ? 'text-slate-300 dark:text-slate-700 opacity-40 cursor-not-allowed select-none'
                                   : isSelected
                                   ? 'bg-blue-600 text-white font-bold rounded-xs border-2 border-slate-900 shadow-sm'
+                                  : !item.isCurrentMonth
+                                  ? 'text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded font-medium cursor-pointer'
                                   : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded font-medium cursor-pointer'
                               }`}
                             >

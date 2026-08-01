@@ -23,6 +23,7 @@ import EditIcon from '@mui/icons-material/Edit';
 
 import RolePermissionMatrix, { ALL_PROJECT_MODULES, MODULE_TREE, sortPermissionsByModuleTree } from '../../../views/roles/RolePermissionMatrix';
 import { useThemeMode } from '../../../contexts/ThemeContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { roleRoute } from '../../../routes/roles/role.route';
 import { toast } from 'react-toastify';
 
@@ -33,6 +34,7 @@ export default function RoleFormModal({
   onSuccess = () => {},
 }) {
   const { isDark } = useThemeMode();
+  const { fetchPermissions } = useAuth();
 
   const [roleName, setRoleName] = useState('');
   const [roleStatus, setRoleStatus] = useState('active');
@@ -166,6 +168,9 @@ export default function RoleFormModal({
 
       if (res && (res.statusCode === 200 || res.statusCode === 201 || res.success)) {
         toast.success(roleToEdit ? 'Role updated successfully!' : 'Role created successfully!');
+        if (typeof fetchPermissions === 'function') {
+          await fetchPermissions(true);
+        }
         onSuccess();
         onClose();
       }

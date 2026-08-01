@@ -57,29 +57,6 @@ export const MODULE_TREE = [
   },
 
   {
-    key: 'tasktype',
-    name: 'Task Types ',
-    category: 'Operations',
-    description: 'Task type settings',
-    icon: AssignmentIcon,
-    accentColor: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/30',
-    actions: ['add', 'edit', 'delete', 'allView', 'ownView']
-  },
-  {
-    key: 'location',
-    name: 'Location',
-    category: 'Operations',
-    description: 'Location settings',
-    icon: AssignmentIcon,
-    accentColor: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/30',
-    subModules: [
-      { key: 'state', name: 'State', description: 'State settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
-      { key: 'region', name: 'Region', description: 'Region settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
-      { key: 'branch', name: 'Branch', description: 'Branch settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
-    ],
-  },
-
-  {
     key: 'attendance',
     name: 'Attendance & Time Logs',
     category: 'HR & Personnel',
@@ -92,49 +69,22 @@ export const MODULE_TREE = [
     ],
   },
   {
-    key: 'role',
-    name: 'Roles & Permissions',
-    category: 'System',
-    description: 'User access levels, role definition, and permission matrix',
-    icon: SecurityIcon,
-    accentColor: 'text-violet-500 bg-violet-500/10 border-violet-500/30',
-    actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
-  },
-  {
     key: 'admin',
     name: 'Admin Panel',
     category: 'System',
     description: 'System administration and controls',
     icon: AdminPanelSettingsIcon,
     accentColor: 'text-purple-500 bg-purple-500/10 border-purple-500/30',
-    actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
-  },
-  {
-    key: 'department',
-    name: 'Department',
-    category: 'Organization',
-    description: 'Company departments and business units',
-    icon: BusinessIcon,
-    accentColor: 'text-teal-500 bg-teal-500/10 border-teal-500/30',
-    actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
-  },
-  {
-    key: 'designation',
-    name: 'Designation',
-    category: 'Organization',
-    description: 'Employee job titles and designations',
-    icon: BusinessIcon,
-    accentColor: 'text-teal-500 bg-teal-500/10 border-teal-500/30',
-    actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
-  },
-  {
-    key: 'branch',
-    name: 'Branch Offices',
-    category: 'Organization',
-    description: 'Office branches and locations',
-    icon: BusinessIcon,
-    accentColor: 'text-teal-500 bg-teal-500/10 border-teal-500/30',
-    actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
+    subModules: [
+      { key: 'tasktype', name: 'Task Types', description: 'Task type settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      { key: 'state', name: 'State', description: 'State settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      { key: 'region', name: 'Region', description: 'Region settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      { key: 'branch', name: 'Branch', description: 'Branch settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      { key: 'role', name: 'Roles & Permissions', description: 'User access levels, role definition, and permission matrix', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      { key: 'department', name: 'Department', description: 'Company departments and business units', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      { key: 'designation', name: 'Designation', description: 'Employee job titles and designations', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      { key: 'reports', name: 'Reports & Analytics', description: 'System reports and analytics', actions: ['allView', 'ownView'] },
+    ],
   },
   {
     key: 'leave',
@@ -162,15 +112,6 @@ export const MODULE_TREE = [
     icon: RssFeedIcon,
     accentColor: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
     actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
-  },
-  {
-    key: 'reports',
-    name: 'Reports & Analytics',
-    category: 'Analytics',
-    description: 'System reports and analytics',
-    icon: RssFeedIcon,
-    accentColor: 'text-rose-500 bg-rose-500/10 border-rose-500/30',
-    actions: ['allView', 'ownView'],
   }
 ];
 

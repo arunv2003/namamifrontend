@@ -23,10 +23,19 @@ export const AuthProvider = ({ children }) => {
   const [permissions, setPermissions] = useState(null);
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const fetchedRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
 
   const fetchPermissions = useCallback(async (force = false) => {
+    const now = Date.now();
+    // Prevent redundant network calls if already fetched unless forced
     if (fetchedRef.current && !force) return;
+    // Throttling guard: Minimum 60s gap for background auto-syncs (5s minimum for manual force)
+    if (lastFetchTimeRef.current && (now - lastFetchTimeRef.current < (force ? 5000 : 60000))) {
+      return;
+    }
+
     fetchedRef.current = true;
+    lastFetchTimeRef.current = now;
 
     try {
       setLoadingPermissions(true);
@@ -63,6 +72,7 @@ export const AuthProvider = ({ children }) => {
     }
     Cookies.set('user_session', JSON.stringify(userData), { expires: 1, path: '/' });
     fetchedRef.current = false;
+    lastFetchTimeRef.current = 0;
     fetchPermissions(true);
     return userData;
   };
@@ -83,6 +93,7 @@ export const AuthProvider = ({ children }) => {
       setRoleInfo(null);
       setPermissions(null);
       fetchedRef.current = false;
+      lastFetchTimeRef.current = 0;
       Cookies.remove('accessToken', { path: '/' });
       Cookies.remove('user_session', { path: '/' });
     }
@@ -92,6 +103,28 @@ export const AuthProvider = ({ children }) => {
     if (user && !fetchedRef.current) {
       fetchPermissions();
     }
+  }, [user, fetchPermissions]);
+
+  // Smart background auto-sync when tab regains focus or becomes visible (with 60s cooldown protection)
+  useEffect(() => {
+    if (!user) return;
+
+    const handleFocusSync = () => {
+      fetchPermissions(true);
+    };
+
+    window.addEventListener('focus', handleFocusSync);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        handleFocusSync();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('focus', handleFocusSync);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [user, fetchPermissions]);
 
   const hasPermission = useCallback(

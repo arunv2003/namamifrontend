@@ -19,7 +19,7 @@ import CustomerDetailsPage from './customerDetailsPage';
 
 export default function CustomerPage() {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const { isDark } = useThemeMode();
 
   if (location.pathname.includes('/details')) {
@@ -43,8 +43,8 @@ export default function CustomerPage() {
         {/* Header Banner & Filter Toolbar */}
         <div
           className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 sm:gap-4 flex-shrink-0 transition-all duration-200 ${isDark
-              ? 'bg-slate-900/70 border-slate-800/80 backdrop-blur-xl shadow-xl'
-              : 'bg-white border-slate-200 shadow-sm'
+            ? 'bg-slate-900/70 border-slate-800/80 backdrop-blur-xl shadow-xl'
+            : 'bg-white border-slate-200 shadow-sm'
             }`}
         >
           {/* Header Title Banner */}
@@ -124,7 +124,7 @@ export default function CustomerPage() {
             </TextField>
 
             {/* Create Customer Button */}
-            <Button
+            {hasPermission("customer", "add") && <Button
               onClick={() => setCreateModalOpen(true)}
               variant="contained"
               size="small"
@@ -150,7 +150,7 @@ export default function CustomerPage() {
               }}
             >
               Create Customer
-            </Button>
+            </Button>}
           </div>
         </div>
 

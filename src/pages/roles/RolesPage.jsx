@@ -32,7 +32,7 @@ import { useThemeMode } from '../../contexts/ThemeContext';
 import { toast } from 'react-toastify';
 
 export default function RolesPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, fetchPermissions } = useAuth();
   const { isDark } = useThemeMode();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -225,6 +225,9 @@ export default function RolesPage() {
       const res = await roleRoute.deleteRole(roleToDelete.slug || roleToDelete.id);
       if (res && (res.success || res.statusCode === 200)) {
         toast.success(`Role '${roleToDelete.name}' deleted successfully!`);
+        if (typeof fetchPermissions === 'function') {
+          fetchPermissions(true);
+        }
         fetchRoles();
         setDeleteModalOpen(false);
         setRoleToDelete(null);
@@ -547,9 +550,15 @@ export default function RolesPage() {
       {/* Role Create / Edit Modal */}
       <RoleFormModal
         open={formModalOpen}
-        onClose={() => setFormModalOpen(false)}
+        onClose={() => {
+          setFormModalOpen(false);
+          setSelectedRole(null);
+        }}
         roleToEdit={selectedRole}
-        onSuccess={fetchRoles}
+        onSuccess={() => {
+          fetchRoles();
+          setSelectedRole(null);
+        }}
       />
 
       {/* Delete Confirmation Modal */}

@@ -26,6 +26,8 @@ import { rankItem } from '@tanstack/match-sorter-utils';
 import { useThemeMode } from '../../contexts/ThemeContext';
 
 import TablePaginationComponent from '../../components/common/TablePaginationComponent';
+import TableSkeleton from '../../components/common/TableSkeleton';
+import LazyAvatar from '../../components/common/LazyAvatar';
 
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -198,17 +200,14 @@ export default function EmployeeTable({
           console.log(img, "Sasasasasasasasa")
           return (
             <div className="flex items-center gap-3 min-w-[180px]">
-              <Avatar
+              <LazyAvatar
                 src={img}
-                alt={name !== 'null' ? name : 'E'}
+                name={name !== 'null' ? name : 'E'}
+                size={34}
                 sx={{
-                  width: 34,
-                  height: 34,
                   border: isDark ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid #cbd5e1',
                 }}
-              >
-                {(name !== 'null' ? name : 'E').charAt(0)}
-              </Avatar>
+              />
               <div>
                 <div className={`font-bold text-xs whitespace-nowrap ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   {name}
@@ -711,7 +710,7 @@ export default function EmployeeTable({
         ),
       }),
     ],
-    [onViewClick, onEditClick, onDeleteClick, isDark]
+    [onViewClick, onEditClick, onDeleteClick, isDark,hasPermission]
   );
 
   const table = useReactTable({
@@ -733,6 +732,17 @@ export default function EmployeeTable({
   });
 
   const currentPageRows = table.getRowModel().rows;
+
+  if (loading) {
+    return (
+      <TableSkeleton
+        columns={columns.length}
+        rows={rowsPerPage}
+        maxHeight={maxHeight}
+        avatarColIndex={0}
+      />
+    );
+  }
 
   return (
     <Paper

@@ -31,6 +31,8 @@ import { rankItem } from '@tanstack/match-sorter-utils';
 import { useThemeMode } from '../../contexts/ThemeContext';
 
 import TablePaginationComponent from '../../components/common/TablePaginationComponent';
+import TableSkeleton from '../../components/common/TableSkeleton';
+import LazyAvatar from '../../components/common/LazyAvatar';
 
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -924,6 +926,17 @@ export default function MyTeamTable({
   });
 
   const currentPageRows = table.getRowModel().rows;
+
+  if (loading) {
+    return (
+      <TableSkeleton
+        columns={columns.length}
+        rows={rowsPerPage}
+        maxHeight={maxHeight}
+        avatarColIndex={0}
+      />
+    );
+  }
 
   return (
     <Paper

@@ -30,6 +30,7 @@ import { rankItem } from '@tanstack/match-sorter-utils';
 import { useThemeMode } from '../../contexts/ThemeContext';
 
 import TablePaginationComponent from '../../components/common/TablePaginationComponent';
+import TableSkeleton from '../../components/common/TableSkeleton';
 import { ALL_PROJECT_MODULES, sortPermissionsByModuleTree } from './RolePermissionMatrix';
 
 import EditIcon from '@mui/icons-material/Edit';
@@ -356,6 +357,15 @@ export default function RolePermissionTable({
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   });
+
+  if (loading) {
+    return (
+      <TableSkeleton
+        columns={columns.length}
+        rows={rowsPerPage}
+      />
+    );
+  }
 
   return (
     <div className="w-full space-y-4">

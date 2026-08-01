@@ -89,7 +89,7 @@ export default function Navbar({
     if (path.startsWith('/holiday')) return 'Holiday Settings';
     if (path.startsWith('/department-settings') || path.startsWith('/department')) return 'Department Settings';
     if (path.startsWith('/designation')) return 'Designation';
-    if (path.startsWith('/task-types') || path.startsWith('/tasktype')) return 'Tasktype';
+    if (path.startsWith('/task-types') || path.startsWith('/tasktype')) return 'Task Type';
     if (path === '/home') return 'Home';
     return 'Home';
   };
@@ -382,18 +382,32 @@ export default function Navbar({
     },
     role: { label: 'Role & Permission Settings', path: '/roles', icon: <SecurityIcon fontSize="small" /> },
     roles: { label: 'Role & Permission Settings', path: '/roles', icon: <SecurityIcon fontSize="small" /> },
-    admin: { label: 'Admin', path: '/admin', icon: <AdminPanelSettingsIcon fontSize="small" /> },
-    department: { label: 'Department Settings', path: '/department-settings', icon: <BusinessIcon fontSize="small" /> },
-    designation: { label: 'Designation', path: '/designation', icon: <BusinessIcon fontSize="small" /> },
-    branch: { label: 'Office Settings', path: '/office', icon: <BusinessIcon fontSize="small" /> },
+    admin: {
+      label: 'Admin Panel',
+      path: '/task-types',
+      icon: <AdminPanelSettingsIcon fontSize="small" />,
+      subModules: {
+        tasktype: { label: 'Task Type', path: '/task-types' },
+        state: { label: 'State', path: '/states' },
+        region: { label: 'Region', path: '/regions' },
+        branch: { label: 'Branch', path: '/branches' },
+        role: { label: 'Role & Permission Settings', path: '/roles' },
+        department: { label: 'Department Settings', path: '/office' },
+        designation: { label: 'Designation', path: '/office' },
+        reports: { label: 'Reports', path: '/reports' },
+      },
+    },
+    department: { label: 'Department Settings', path: '/office', icon: <BusinessIcon fontSize="small" /> },
+    designation: { label: 'Designation', path: '/office', icon: <BusinessIcon fontSize="small" /> },
+    branch: { label: 'Office Settings', path: '/branches', icon: <BusinessIcon fontSize="small" /> },
     office: { label: 'Office Settings', path: '/office', icon: <BusinessIcon fontSize="small" /> },
     leave: { label: 'Leave', path: '/leave', icon: <HowToRegIcon fontSize="small" /> },
     holiday: { label: 'Holiday Settings', path: '/holiday', icon: <HowToRegIcon fontSize="small" /> },
     feeds: { label: 'Feeds', path: '/feeds', icon: <RssFeedIcon fontSize="small" /> },
     reports: { label: 'Reports', path: '/reports', icon: <RssFeedIcon fontSize="small" /> },
     settings: { label: 'Settings', path: '/settings', icon: <AdminPanelSettingsIcon fontSize="small" /> },
-    tasktype: { label: 'Tasktype', path: '/task-types', icon: <AssignmentIcon fontSize="small" /> },
-    tasktypesettings: { label: 'Tasktype', path: '/task-types', icon: <AssignmentIcon fontSize="small" /> },
+    tasktype: { label: 'Task Type', path: '/task-types', icon: <AssignmentIcon fontSize="small" /> },
+    tasktypesettings: { label: 'Task Type', path: '/task-types', icon: <AssignmentIcon fontSize="small" /> },
   };
 
   // Dynamically build nav items directly from API permissions
@@ -457,7 +471,10 @@ export default function Navbar({
         const activeSubItems = [];
         Object.keys(nodePerm).forEach((subKey) => {
           if (hasAccess(nodePerm[subKey])) {
-            const subMeta = meta?.subModules?.[subKey];
+            const subMeta =
+              meta?.subModules?.[subKey] ||
+              MODULE_METADATA[subKey] ||
+              MODULE_METADATA[subKey.toLowerCase()];
             activeSubItems.push({
               label: subMeta?.label || formatLabel(subKey),
               path: subMeta?.path || `/modules/${apiKey}/${subKey}`,

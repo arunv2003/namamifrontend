@@ -21,6 +21,7 @@ import {
 } from '@tanstack/react-table';
 import { useThemeMode } from '../../contexts/ThemeContext';
 import TablePaginationComponent from '../../components/common/TablePaginationComponent';
+import TableSkeleton from '../../components/common/TableSkeleton';
 
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -39,6 +40,7 @@ export default function StateTable({
   onEditClick,
   onDeleteClick,
   maxHeight,
+  loading = false,
 }) {
   const [sorting, setSorting] = useState([]);
   const { isDark } = useThemeMode();
@@ -167,11 +169,27 @@ export default function StateTable({
     columns,
     state: {
       sorting,
+      pagination: {
+        pageIndex: page,
+        pageSize: rowsPerPage,
+      },
     },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    manualPagination: true,
+    pageCount: Math.ceil((totalData || 0) / rowsPerPage) || 1,
   });
+
+  if (loading) {
+    return (
+      <TableSkeleton
+        columns={columns.length}
+        rows={rowsPerPage}
+        maxHeight={maxHeight}
+      />
+    );
+  }
 
   return (
     <Paper
