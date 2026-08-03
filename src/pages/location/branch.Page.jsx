@@ -83,6 +83,17 @@ export default function BranchPage() {
     fetchBranches();
   }, [fetchBranches]);
 
+  useEffect(() => {
+    const handleAdminAdd = (e) => {
+      if (!e.detail?.section || e.detail.section === 'branch') {
+        setSelectedBranch(null);
+        setFormModalOpen(true);
+      }
+    };
+    window.addEventListener('admin-open-create-modal', handleAdminAdd);
+    return () => window.removeEventListener('admin-open-create-modal', handleAdminAdd);
+  }, []);
+
   const handleOpenCreateModal = () => {
     setSelectedBranch(null);
     setFormModalOpen(true);

@@ -80,6 +80,17 @@ export default function OfficePage() {
     return String(off.status || '').toLowerCase() === selectedStatus.toLowerCase();
   });
 
+  useEffect(() => {
+    const handleAdminAdd = (e) => {
+      if (!e.detail?.section || e.detail.section === 'department' || e.detail.section === 'designation') {
+        setSelectedOffice(null);
+        setFormModalOpen(true);
+      }
+    };
+    window.addEventListener('admin-open-create-modal', handleAdminAdd);
+    return () => window.removeEventListener('admin-open-create-modal', handleAdminAdd);
+  }, []);
+
   const handleOpenCreateModal = () => {
     setSelectedOffice(null);
     setFormModalOpen(true);

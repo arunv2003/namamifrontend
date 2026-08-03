@@ -84,6 +84,17 @@ export default function TaskTypePage() {
     fetchTaskTypes();
   }, [fetchTaskTypes]);
 
+  useEffect(() => {
+    const handleAdminAdd = (e) => {
+      if (!e.detail?.section || e.detail.section === 'tasktype') {
+        setSelectedTaskType(null);
+        setFormModalOpen(true);
+      }
+    };
+    window.addEventListener('admin-open-create-modal', handleAdminAdd);
+    return () => window.removeEventListener('admin-open-create-modal', handleAdminAdd);
+  }, []);
+
   const handleOpenCreateModal = () => {
     setSelectedTaskType(null);
     setFormModalOpen(true);

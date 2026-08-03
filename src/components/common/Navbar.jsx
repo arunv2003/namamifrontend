@@ -384,24 +384,41 @@ export default function Navbar({
     roles: { label: 'Role & Permission Settings', path: '/roles', icon: <SecurityIcon fontSize="small" /> },
     admin: {
       label: 'Admin Panel',
-      path: '/task-types',
+      path: '/admin',
+      disableDropdown: true,
       icon: <AdminPanelSettingsIcon fontSize="small" />,
       subModules: {
-        tasktype: { label: 'Task Type', path: '/task-types' },
-        state: { label: 'State', path: '/states' },
-        region: { label: 'Region', path: '/regions' },
-        branch: { label: 'Branch', path: '/branches' },
-        role: { label: 'Role & Permission Settings', path: '/roles' },
-        department: { label: 'Department Settings', path: '/office' },
-        designation: { label: 'Designation', path: '/office' },
+        role: { label: 'Role & Permission Settings', path: '/admin?tab=role' },
+        tasktype: { label: 'Task Type', path: '/admin?tab=tasktype' },
+        state: { label: 'State', path: '/admin?tab=state' },
+        region: { label: 'Region', path: '/admin?tab=region' },
+        branch: { label: 'Branch', path: '/admin?tab=branch' },
+        department: { label: 'Department Settings', path: '/admin?tab=department' },
+        designation: { label: 'Designation', path: '/admin?tab=designation' },
         reports: { label: 'Reports', path: '/reports' },
+        leaveType: { label: 'Leave Types', path: '/admin?tab=leaveType' },
+        leaveprofile: { label: 'Leave Profiles', path: '/admin?tab=leaveprofile' },
+        leave: { label: 'Leave Settings', path: '/admin?tab=leave' },
+        nonworking: { label: 'Non Working', path: '/admin?tab=nonworking' },
+        holidays: { label: 'Holidays', path: '/admin?tab=holidays' },
       },
     },
     department: { label: 'Department Settings', path: '/office', icon: <BusinessIcon fontSize="small" /> },
     designation: { label: 'Designation', path: '/office', icon: <BusinessIcon fontSize="small" /> },
     branch: { label: 'Office Settings', path: '/branches', icon: <BusinessIcon fontSize="small" /> },
     office: { label: 'Office Settings', path: '/office', icon: <BusinessIcon fontSize="small" /> },
-    leave: { label: 'Leave', path: '/leave', icon: <HowToRegIcon fontSize="small" /> },
+    leave: {
+      label: 'Leave Management',
+      path: '/leaves',
+      icon: <HowToRegIcon fontSize="small" />,
+      subModules: {
+        leaveType: { label: 'Leave Types', path: '/leave-types' },
+        leaveprofile: { label: 'Leave Profiles', path: '/leave-profiles' },
+        leave: { label: 'Leave Settings', path: '/leaves' },
+        nonworking: { label: 'Non Working', path: '/non-working-days' },
+        holidays: { label: 'Holidays', path: '/holidays' },
+      },
+    },
     holiday: { label: 'Holiday Settings', path: '/holiday', icon: <HowToRegIcon fontSize="small" /> },
     feeds: { label: 'Feeds', path: '/feeds', icon: <RssFeedIcon fontSize="small" /> },
     reports: { label: 'Reports', path: '/reports', icon: <RssFeedIcon fontSize="small" /> },
@@ -465,7 +482,8 @@ export default function Navbar({
       const isParentNode =
         nodePerm &&
         typeof nodePerm === 'object' &&
-        !('add' in nodePerm || 'allView' in nodePerm || 'ownView' in nodePerm);
+        !('add' in nodePerm || 'allView' in nodePerm || 'ownView' in nodePerm) &&
+        !meta?.disableDropdown;
 
       if (isParentNode) {
         const activeSubItems = [];

@@ -326,6 +326,19 @@ export default function TaskTable({
           );
         },
       }),
+      columnHelper.accessor("taskType", {
+        id: "taskType",
+        header: "Task Type",
+        cell: ({ row }) => {
+          const tt = row.original.taskType;
+          const label = typeof tt === "object" && tt !== null ? (tt.name ?? "N/A") : (tt ?? "N/A");
+          return (
+            <span>
+              {label}
+            </span>
+          );
+        },
+      }),
       columnHelper.accessor("assigneeToEmployeeId", {
         id: "employee",
         header: "Employee",

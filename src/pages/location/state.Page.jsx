@@ -83,6 +83,17 @@ export default function StatePage() {
     fetchStates();
   }, [fetchStates]);
 
+  useEffect(() => {
+    const handleAdminAdd = (e) => {
+      if (!e.detail?.section || e.detail.section === 'state') {
+        setSelectedState(null);
+        setFormModalOpen(true);
+      }
+    };
+    window.addEventListener('admin-open-create-modal', handleAdminAdd);
+    return () => window.removeEventListener('admin-open-create-modal', handleAdminAdd);
+  }, []);
+
   const handleOpenCreateModal = () => {
     setSelectedState(null);
     setFormModalOpen(true);

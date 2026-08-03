@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import EmployeeTable from '../../views/employee/EmployeeTable';
@@ -6,6 +6,7 @@ import DeleteEmployeeModal from '../../components/common/DeleteEmployeeModal';
 import { MOCK_EMPLOYEES } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useThemeMode } from '../../contexts/ThemeContext';
+import { DashboardRoute } from '../../routes/dashboard/dashboard.route';
 
 // MUI Icons
 import AssessmentIcon from '@mui/icons-material/Assessment';
@@ -16,34 +17,38 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
-// Area Chart Daily Data Points (2026-07-01 to 2026-07-20)
-const CHART_DATA = [
-  { date: '2026-07-01', val: 9600 },
-  { date: '2026-07-02', val: 10200 },
-  { date: '2026-07-03', val: 11000 },
-  { date: '2026-07-04', val: 11501.71 },
+// Area Chart Daily Data Points Default (2026-07-01 to 2026-07-20)
+const DEFAULT_CHART_DATA = [
+  { date: '2026-07-01', val: 900 },
+  { date: '2026-07-02', val: 1200 },
+  { date: '2026-07-03', val: 1100 },
+  { date: '2026-07-04', val: 1501.71 },
   { date: '2026-07-05', val: 1200 },
-  { date: '2026-07-06', val: 11800 },
-  { date: '2026-07-07', val: 9800 },
+  { date: '2026-07-06', val: 1800 },
+  { date: '2026-07-07', val: 980 },
   { date: '2026-07-08', val: 10500 },
   { date: '2026-07-09', val: 9000 },
-  { date: '2026-07-10', val: 11600 },
-  { date: '2026-07-11', val: 11900 },
+  { date: '2026-07-10', val: 1160 },
+  { date: '2026-07-11', val: 1190 },
   { date: '2026-07-12', val: 1500 },
   { date: '2026-07-13', val: 12100 },
   { date: '2026-07-14', val: 11400 },
   { date: '2026-07-15', val: 11800 },
-  { date: '2026-07-16', val: 12500 },
+  { date: '2026-07-16', val: 1250 },
   { date: '2026-07-17', val: 12200 },
-  { date: '2026-07-18', val: 13200 },
+  { date: '2026-07-18', val: 1300 },
   { date: '2026-07-19', val: 1800 },
-  { date: '2026-07-20', val: 11000 },
+  { date: '2026-07-20', val: 1100 },
 ];
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { isDark } = useThemeMode();
+
+  // Dashboard backend stats state
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // Animation key for graph refresh
   const [chartKey, setChartKey] = useState(0);
@@ -59,6 +64,24 @@ export default function DashboardPage() {
   const [customerFilter, setCustomerFilter] = useState('All');
   const [employeeFilter, setEmployeeFilter] = useState('All');
   const [dateRange, setDateRange] = useState('Month to Date');
+
+  // Fetch stats from backend API
+  const fetchDashboardStats = async () => {
+    setLoading(true);
+    const res = await DashboardRoute.getStats({ customer: customerFilter, employee: employeeFilter, dateRange });
+    if (res?.success && res?.data) {
+      setStats(res.data);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, [customerFilter, employeeFilter, dateRange]);
+
+  const activeChartData = useMemo(() => {
+    return Array.isArray(stats?.chartData) ? stats.chartData : [];
+  }, [stats]);
 
   // Hovered Chart Point for Tooltip
   const [hoveredPoint, setHoveredPoint] = useState({ date: '2026-07-04', val: 11501.71, x: 210, y: 55 });
@@ -76,15 +99,23 @@ export default function DashboardPage() {
   // Chart SVG Calculations
   const chartWidth = 1000;
   const chartHeight = 180;
-  const maxVal = 14000;
+  // Dynamic Y-axis max: round up to nearest nice number above actual max
+  const maxVal = useMemo(() => {
+    if (!activeChartData.length) return 1;
+    const rawMax = Math.max(...activeChartData.map((d) => d.val), 1);
+    // Round up to nearest 1000 (or 10 for small datasets)
+    const magnitude = rawMax > 100 ? 1000 : rawMax > 10 ? 100 : 10;
+    return Math.ceil(rawMax / magnitude) * magnitude;
+  }, [activeChartData]);
 
   const points = useMemo(() => {
-    return CHART_DATA.map((d, index) => {
-      const x = (index / (CHART_DATA.length - 1)) * chartWidth;
+    if (!activeChartData.length) return [];
+    return activeChartData.map((d, index) => {
+      const x = activeChartData.length === 1 ? chartWidth / 2 : (index / (activeChartData.length - 1)) * chartWidth;
       const y = chartHeight - (d.val / maxVal) * chartHeight;
       return { x, y, date: d.date, val: d.val };
     });
-  }, [chartWidth, chartHeight, maxVal]);
+  }, [activeChartData, chartWidth, chartHeight, maxVal]);
 
   const { smoothLinePath, smoothAreaPath } = useMemo(() => {
     if (!points || points.length === 0) return { smoothLinePath: '', smoothAreaPath: '' };
@@ -268,79 +299,81 @@ export default function DashboardPage() {
             <div className={`p-3 rounded-xl border transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-xs hover:shadow-sm'}`}>
               <div className="flex justify-between items-start">
                 <span className={`text-[11px] font-extrabold ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>Distance</span>
-                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>▲ 11.7%</span>
+                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>{stats?.kpi?.distance?.change || "▲ 11.7%"}</span>
               </div>
-              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>197,968.49 <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>Km</span></p>
+              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>{stats?.kpi?.distance?.value || "197,968.49"} <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>{stats?.kpi?.distance?.unit || "Km"}</span></p>
             </div>
 
             {/* 2. Travel Time */}
             <div className={`p-3 rounded-xl border transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-xs hover:shadow-sm'}`}>
               <div className="flex justify-between items-start">
                 <span className={`text-[11px] font-extrabold ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>Travel Time</span>
-                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>▲ 18.98%</span>
+                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>{stats?.kpi?.travelTime?.change || "▲ 18.98%"}</span>
               </div>
-              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-slate-100' : 'text-slate-950'}`}>13113:57 <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>hh:mm</span></p>
+              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-slate-100' : 'text-slate-950'}`}>{stats?.kpi?.travelTime?.value || "13113:57"} <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>{stats?.kpi?.travelTime?.unit || "hh:mm"}</span></p>
             </div>
 
             {/* 3. Task */}
             <div className={`p-3 rounded-xl border transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-xs hover:shadow-sm'}`}>
               <div className="flex justify-between items-start">
                 <span className={`text-[11px] font-extrabold ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>Task</span>
-                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>▲ 8.47%</span>
+                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>{stats?.kpi?.task?.change || "▲ 8.47%"}</span>
               </div>
-              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-pink-400' : 'text-pink-700'}`}>42377 <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>Count</span></p>
+              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-pink-400' : 'text-pink-700'}`}>{stats?.kpi?.task?.value || "42377"} <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>{stats?.kpi?.task?.unit || "Count"}</span></p>
             </div>
 
             {/* 4. Employee Present */}
             <div className={`p-3 rounded-xl border transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-xs hover:shadow-sm'}`}>
               <div className="flex justify-between items-start">
                 <span className={`text-[11px] font-extrabold ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>Employee Present</span>
-                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>▲ 18.66%</span>
+                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>{stats?.kpi?.employeePresent?.change || "▲ 18.66%"}</span>
               </div>
-              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>4117 <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>Count</span></p>
+              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>{stats?.kpi?.employeePresent?.value || "4117"} <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>{stats?.kpi?.employeePresent?.unit || "Count"}</span></p>
             </div>
 
             {/* 5. Working Hours */}
             <div className={`p-3 rounded-xl border transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-xs hover:shadow-sm'}`}>
               <div className="flex justify-between items-start">
                 <span className={`text-[11px] font-extrabold ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>Working Hours</span>
-                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>▲ 5.11%</span>
+                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>{stats?.kpi?.workingHours?.change || "▲ 5.11%"}</span>
               </div>
-              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>45232:54 <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>hh:mm</span></p>
+              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{stats?.kpi?.workingHours?.value || "45232:54"} <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>{stats?.kpi?.workingHours?.unit || "hh:mm"}</span></p>
             </div>
 
             {/* 6. Payment Received */}
             <div className={`p-3 rounded-xl border transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-xs hover:shadow-sm'}`}>
               <div className="flex justify-between items-start">
                 <span className={`text-[11px] font-extrabold ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>Payment Received</span>
-                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>▲ 5.49%</span>
+                <span className={`text-[9px] font-extrabold px-1 py-0.5 rounded ${isDark ? 'text-emerald-400 bg-emerald-950/60' : 'text-emerald-800 bg-emerald-100 border border-emerald-300'}`}>{stats?.kpi?.paymentReceived?.change || "▲ 5.49%"}</span>
               </div>
-              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-slate-100' : 'text-slate-950'}`}>10,954,130 <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>₹</span></p>
+              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-slate-100' : 'text-slate-950'}`}>{stats?.kpi?.paymentReceived?.value || "10,954,130"} <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>{stats?.kpi?.paymentReceived?.unit || "₹"}</span></p>
             </div>
 
             {/* 7. Payment Submitted */}
             <div className={`p-3 rounded-xl border transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-xs hover:shadow-sm'}`}>
               <div className="flex justify-between items-start">
                 <span className={`text-[11px] font-extrabold ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>Payment Submitted</span>
-                <span className={`text-[9px] font-extrabold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>0%</span>
+                <span className={`text-[9px] font-extrabold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>{stats?.kpi?.paymentSubmitted?.change || "0%"}</span>
               </div>
-              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>0 <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>₹</span></p>
+              <p className={`text-sm sm:text-base font-extrabold mt-1 tracking-tight ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>{stats?.kpi?.paymentSubmitted?.value || "0"} <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-800'}`}>{stats?.kpi?.paymentSubmitted?.unit || "₹"}</span></p>
             </div>
           </div>
 
           {/* Area Chart Section - Distance ( Km ) */}
           <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-xs'}`}>
-            <h3 className={`text-xs font-extrabold text-center mb-3 tracking-wide ${isDark ? 'text-white' : 'text-slate-950'}`}>Distance ( Km )</h3>
+            <h3 className={`text-xs font-extrabold text-center mb-3 tracking-wide ${isDark ? 'text-white' : 'text-slate-950'}`}>
+              Employee Attendance — {dateRange}
+            </h3>
 
             {/* SVG Interactive Area Chart Container */}
             <div className="relative w-full overflow-x-auto">
               <div className="min-w-[750px] h-[210px] relative">
-                {/* Y-Axis Grid Lines & Numbers */}
+                {/* Y-Axis Grid Lines & Numbers (dynamic) */}
                 <div className={`absolute inset-y-0 left-8 right-0 flex flex-col justify-between text-[10px] font-extrabold pointer-events-none ${isDark ? 'text-slate-200' : 'text-slate-950'}`}>
-                  <div className={`border-b w-full flex items-center ${isDark ? 'border-slate-800/80' : 'border-slate-300'}`}>14000</div>
-                  <div className={`border-b w-full flex items-center ${isDark ? 'border-slate-800/80' : 'border-slate-300'}`}>10500</div>
-                  <div className={`border-b w-full flex items-center ${isDark ? 'border-slate-800/80' : 'border-slate-300'}`}>7000</div>
-                  <div className={`border-b w-full flex items-center ${isDark ? 'border-slate-800/80' : 'border-slate-300'}`}>3500</div>
+                  <div className={`border-b w-full flex items-center ${isDark ? 'border-slate-800/80' : 'border-slate-300'}`}>{maxVal.toLocaleString()}</div>
+                  <div className={`border-b w-full flex items-center ${isDark ? 'border-slate-800/80' : 'border-slate-300'}`}>{Math.round(maxVal * 0.75).toLocaleString()}</div>
+                  <div className={`border-b w-full flex items-center ${isDark ? 'border-slate-800/80' : 'border-slate-300'}`}>{Math.round(maxVal * 0.5).toLocaleString()}</div>
+                  <div className={`border-b w-full flex items-center ${isDark ? 'border-slate-800/80' : 'border-slate-300'}`}>{Math.round(maxVal * 0.25).toLocaleString()}</div>
                   <div className="w-full flex items-center">0</div>
                 </div>
 
@@ -377,8 +410,8 @@ export default function DashboardPage() {
                     <path d={smoothLinePath} fill="none" stroke="#ea580c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
                     {/* Interactive Points */}
-                    {CHART_DATA.map((d, index) => {
-                      const cx = (index / (CHART_DATA.length - 1)) * chartWidth;
+                    {activeChartData.map((d, index) => {
+                      const cx = (index / (activeChartData.length - 1)) * chartWidth;
                       const cy = chartHeight - (d.val / maxVal) * chartHeight;
                       return (
                         <circle
@@ -414,7 +447,7 @@ export default function DashboardPage() {
 
                 {/* X-Axis Dates */}
                 <div className={`absolute bottom-0 left-8 right-0 flex justify-between text-[9px] font-extrabold pt-1 ${isDark ? 'text-slate-200' : 'text-slate-950'}`}>
-                  {CHART_DATA.map((d) => (
+                  {activeChartData.map((d) => (
                     <span key={d.date}>{d.date}</span>
                   ))}
                 </div>

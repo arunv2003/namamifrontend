@@ -49,13 +49,22 @@ export default function RoleFormModal({
       if (mod.subModules && mod.subModules.length > 0) {
         defaultPerms[mod.key] = {};
         mod.subModules.forEach((sub) => {
-          defaultPerms[mod.key][sub.key] = {
-            add: false,
-            edit: false,
-            delete: false,
-            allView: false,
-            ownView: false,
-          };
+          if (sub.subModules && sub.subModules.length > 0) {
+            defaultPerms[mod.key][sub.key] = {};
+            sub.subModules.forEach((nested) => {
+              const emptyFlags = { add: false, edit: false, delete: false, allView: false, ownView: false };
+              defaultPerms[mod.key][sub.key][nested.key] = { ...emptyFlags };
+              defaultPerms[mod.key][nested.key] = { ...emptyFlags };
+            });
+          } else {
+            defaultPerms[mod.key][sub.key] = {
+              add: false,
+              edit: false,
+              delete: false,
+              allView: false,
+              ownView: false,
+            };
+          }
         });
       } else {
         defaultPerms[mod.key] = {
@@ -98,13 +107,29 @@ export default function RoleFormModal({
           if (!node || typeof node !== 'object') return;
 
           if (key.includes('.')) {
-            // Flat dot key e.g. "task.taskAll" or "employee.myTeam"
-            const [parentKey, subKey] = key.split('.');
-            if (!mergedPerms[parentKey]) mergedPerms[parentKey] = {};
-            if (!mergedPerms[parentKey][subKey]) {
-              mergedPerms[parentKey][subKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+            const parts = key.split('.');
+            if (parts.length === 2) {
+              const [parentKey, subKey] = parts;
+              if (!mergedPerms[parentKey]) mergedPerms[parentKey] = {};
+              if (!mergedPerms[parentKey][subKey]) {
+                mergedPerms[parentKey][subKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+              }
+              mergeFlags(mergedPerms[parentKey][subKey], node);
+            } else if (parts.length === 3) {
+              const [parentKey, subKey, nestedKey] = parts;
+              if (!mergedPerms[parentKey]) mergedPerms[parentKey] = {};
+              if (!mergedPerms[parentKey][subKey] || typeof mergedPerms[parentKey][subKey] !== 'object') {
+                mergedPerms[parentKey][subKey] = {};
+              }
+              if (!mergedPerms[parentKey][subKey][nestedKey]) {
+                mergedPerms[parentKey][subKey][nestedKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+              }
+              mergeFlags(mergedPerms[parentKey][subKey][nestedKey], node);
+              if (!mergedPerms[parentKey][nestedKey]) {
+                mergedPerms[parentKey][nestedKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+              }
+              mergeFlags(mergedPerms[parentKey][nestedKey], node);
             }
-            mergeFlags(mergedPerms[parentKey][subKey], node);
           } else if (mergedPerms[key]) {
             const isSubModuleParent =
               typeof mergedPerms[key] === 'object' &&
@@ -114,10 +139,48 @@ export default function RoleFormModal({
               Object.keys(node).forEach((subKey) => {
                 const subNode = node[subKey];
                 if (subNode && typeof subNode === 'object') {
-                  if (!mergedPerms[key][subKey]) {
-                    mergedPerms[key][subKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                  const nestedObjectKeys = Object.keys(subNode).filter(
+                    (nk) => subNode[nk] && typeof subNode[nk] === 'object' && !Array.isArray(subNode[nk])
+                  );
+
+                  if (nestedObjectKeys.length > 0) {
+                    if (!mergedPerms[key][subKey] || typeof mergedPerms[key][subKey] !== 'object') {
+                      mergedPerms[key][subKey] = {};
+                    }
+                    nestedObjectKeys.forEach((nestedKey) => {
+                      const nestedNode = subNode[nestedKey];
+                      if (!mergedPerms[key][subKey][nestedKey]) {
+                        mergedPerms[key][subKey][nestedKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                      }
+                      mergeFlags(mergedPerms[key][subKey][nestedKey], nestedNode);
+                      if (!mergedPerms[key][nestedKey]) {
+                        mergedPerms[key][nestedKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                      }
+                      mergeFlags(mergedPerms[key][nestedKey], nestedNode);
+                    });
                   }
-                  mergeFlags(mergedPerms[key][subKey], subNode);
+
+                  // If subKey is a nested key inside a group (like leaveType inside leavesettings)
+                  MODULE_TREE.forEach((m) => {
+                    if (m.key === key && m.subModules) {
+                      m.subModules.forEach((s) => {
+                        if (s.subModules && s.subModules.some((n) => n.key === subKey)) {
+                          if (!mergedPerms[key][s.key]) mergedPerms[key][s.key] = {};
+                          if (!mergedPerms[key][s.key][subKey] || typeof mergedPerms[key][s.key][subKey] !== 'object') {
+                            mergedPerms[key][s.key][subKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                          }
+                          mergeFlags(mergedPerms[key][s.key][subKey], subNode);
+                        }
+                      });
+                    }
+                  });
+
+                  if (!mergedPerms[key][subKey] || 'add' in mergedPerms[key][subKey] || 'allView' in mergedPerms[key][subKey]) {
+                    if (!mergedPerms[key][subKey]) {
+                      mergedPerms[key][subKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                    }
+                    mergeFlags(mergedPerms[key][subKey], subNode);
+                  }
                 }
               });
             } else {

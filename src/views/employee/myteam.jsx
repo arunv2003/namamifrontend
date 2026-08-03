@@ -241,7 +241,7 @@ export function OrgTreeChart({ onStatsCalculated }) {
   const { isDark } = useThemeMode();
   const [treeData, setTreeData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [zoomLevel, setZoomLevel] = useState(0.9);
+  const [zoomLevel, setZoomLevel] = useState(0.6);
   const [expandedNodes, setExpandedNodes] = useState({});
   const [selectedNode, setSelectedNode] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);

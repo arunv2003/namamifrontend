@@ -23,6 +23,7 @@ import StatePage from './pages/location/state.Page';
 import RegionPage from './pages/location/region.Page';
 import BranchPage from './pages/location/branch.Page';
 import TaskTypePage from './pages/tasks/taskTypePage';
+import AdminPage from './pages/admin/AdminPage';
 
 // Listener to fetch permissions on every route/page change
 function RoutePermissionListener() {
@@ -234,6 +235,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <TaskTypePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/*"
+              element={
+                <ProtectedRoute>
+                  <AdminPage />
                 </ProtectedRoute>
               }
             />

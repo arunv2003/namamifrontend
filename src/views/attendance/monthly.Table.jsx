@@ -22,17 +22,116 @@ const MONTH_NAMES = [
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const SUMMARY_COLS = [
-  { key: 'p', label: 'P' },
-  { key: 'a', label: 'A' },
-  { key: 'l', label: 'L' },
-  { key: 'hl', label: 'HL' },
-  { key: 'h', label: 'H' },
-  { key: 'pa', label: 'PA' },
-  { key: 'hp', label: 'HP' },
-  { key: 'ah', label: 'AH' },
-  { key: 'ap', label: 'AP' },
-  { key: 'd', label: 'D' },
-  { key: 'nw', label: 'NW' },
+  {
+    key: 'p',
+    label: 'P',
+    colorClass: 'text-emerald-700 dark:text-emerald-400',
+    headerColor: 'text-emerald-900 dark:text-emerald-200',
+    lightHeaderBg: '#d1fae5',
+    darkHeaderBg: '#064e3b',
+    lightBodyBg: '#ecfdf5',
+    darkBodyBg: '#022c22',
+  },
+  {
+    key: 'a',
+    label: 'A',
+    colorClass: 'text-rose-700 dark:text-rose-400',
+    headerColor: 'text-rose-900 dark:text-rose-200',
+    lightHeaderBg: '#ffe4e6',
+    darkHeaderBg: '#881337',
+    lightBodyBg: '#fff1f2',
+    darkBodyBg: '#4c0519',
+  },
+  {
+    key: 'l',
+    label: 'L',
+    colorClass: 'text-purple-700 dark:text-purple-400',
+    headerColor: 'text-purple-900 dark:text-purple-200',
+    lightHeaderBg: '#f3e8ff',
+    darkHeaderBg: '#581c87',
+    lightBodyBg: '#faf5ff',
+    darkBodyBg: '#3b0764',
+  },
+  {
+    key: 'hl',
+    label: 'HL',
+    colorClass: 'text-amber-700 dark:text-amber-400',
+    headerColor: 'text-amber-900 dark:text-amber-200',
+    lightHeaderBg: '#fef3c7',
+    darkHeaderBg: '#78350f',
+    lightBodyBg: '#fffbeb',
+    darkBodyBg: '#451a03',
+  },
+  {
+    key: 'h',
+    label: 'H',
+    colorClass: 'text-teal-700 dark:text-teal-400',
+    headerColor: 'text-teal-900 dark:text-teal-200',
+    lightHeaderBg: '#ccfbf1',
+    darkHeaderBg: '#134e4a',
+    lightBodyBg: '#f0fdfa',
+    darkBodyBg: '#042f2e',
+  },
+  {
+    key: 'pa',
+    label: 'PA',
+    colorClass: 'text-indigo-700 dark:text-indigo-400',
+    headerColor: 'text-indigo-900 dark:text-indigo-200',
+    lightHeaderBg: '#e0e7ff',
+    darkHeaderBg: '#312e81',
+    lightBodyBg: '#eef2ff',
+    darkBodyBg: '#1e1b4b',
+  },
+  {
+    key: 'hp',
+    label: 'HP',
+    colorClass: 'text-blue-700 dark:text-blue-400',
+    headerColor: 'text-blue-900 dark:text-blue-200',
+    lightHeaderBg: '#dbeafe',
+    darkHeaderBg: '#1e3a8a',
+    lightBodyBg: '#eff6ff',
+    darkBodyBg: '#172554',
+  },
+  {
+    key: 'ah',
+    label: 'AH',
+    colorClass: 'text-pink-700 dark:text-pink-400',
+    headerColor: 'text-pink-900 dark:text-pink-200',
+    lightHeaderBg: '#fce7f3',
+    darkHeaderBg: '#831843',
+    lightBodyBg: '#fdf2f8',
+    darkBodyBg: '#500724',
+  },
+  {
+    key: 'ap',
+    label: 'AP',
+    colorClass: 'text-violet-700 dark:text-violet-400',
+    headerColor: 'text-violet-900 dark:text-violet-200',
+    lightHeaderBg: '#ede9fe',
+    darkHeaderBg: '#4c1d95',
+    lightBodyBg: '#f5f3ff',
+    darkBodyBg: '#2e1065',
+  },
+  {
+    key: 'd',
+    label: 'D',
+    colorClass: 'text-cyan-700 dark:text-cyan-400',
+    headerColor: 'text-cyan-900 dark:text-cyan-200',
+    lightHeaderBg: '#cffafe',
+    darkHeaderBg: '#164e63',
+    lightBodyBg: '#ecfeff',
+    darkBodyBg: '#083344',
+  },
+  {
+    key: 'nw',
+    label: 'NW',
+    colorClass: 'text-slate-700 dark:text-slate-400',
+    headerColor: 'text-slate-900 dark:text-slate-200',
+    lightHeaderBg: '#e2e8f0',
+    darkHeaderBg: '#334155',
+    lightBodyBg: '#f1f5f9',
+    darkBodyBg: '#1e293b',
+  },
 ];
 
 export default function MonthlyAttendanceTable({ externalSearchTerm = '' }) {
@@ -405,7 +504,7 @@ export default function MonthlyAttendanceTable({ externalSearchTerm = '' }) {
                 {SUMMARY_COLS.map((col, idx) => {
                   const cellWidth = 40;
                   const rightOffset = (SUMMARY_COLS.length - 1 - idx) * cellWidth;
-                  const bgColor = isDark ? '#0f172a' : '#f8fafc';
+                  const bgColor = isDark ? col.darkHeaderBg : col.lightHeaderBg;
                   return (
                     <th
                       key={col.key}
@@ -421,7 +520,8 @@ export default function MonthlyAttendanceTable({ externalSearchTerm = '' }) {
                       className={`sticky top-0 z-[60] p-0 text-center text-[10px] font-black border-r border-b ${idx === 0
                           ? 'border-l-2 border-slate-400 dark:border-slate-600 '
                           : ''
-                        } ${isDark ? 'text-blue-400 border-slate-800' : 'text-blue-900 border-slate-300'
+                        } ${col.headerColor || 'text-slate-800 dark:text-slate-200'} ${
+                          isDark ? 'border-slate-800' : 'border-slate-300'
                         }`}
                     >
                       <div className="w-full h-full flex items-center justify-center py-2.5">
@@ -505,7 +605,7 @@ export default function MonthlyAttendanceTable({ externalSearchTerm = '' }) {
                     {SUMMARY_COLS.map((col, idx) => {
                       const cellWidth = 40;
                       const rightOffset = (SUMMARY_COLS.length - 1 - idx) * cellWidth;
-                      const bgColor = isDark ? '#0f172a' : '#ffffff';
+                      const bgColor = isDark ? col.darkBodyBg : col.lightBodyBg;
                       return (
                         <td
                           key={col.key}
@@ -521,7 +621,8 @@ export default function MonthlyAttendanceTable({ externalSearchTerm = '' }) {
                           className={`sticky z-[40] p-0 text-center font-mono text-[11px] font-bold border-r border-b ${idx === 0
                               ? 'border-l-2 border-slate-400 dark:border-slate-600 '
                               : ''
-                            } ${isDark ? 'text-slate-100 border-slate-800' : 'text-slate-900 border-slate-200'
+                            } ${col.colorClass || 'text-slate-900 dark:text-slate-100'} ${
+                              isDark ? 'border-slate-800' : 'border-slate-200'
                             }`}
                         >
                           <div className="w-full h-full flex items-center justify-center py-2 bg-inherit">

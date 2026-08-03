@@ -76,43 +76,55 @@ export const MODULE_TREE = [
     icon: AdminPanelSettingsIcon,
     accentColor: 'text-purple-500 bg-purple-500/10 border-purple-500/30',
     subModules: [
+      { key: 'role', name: 'Roles & Permissions', description: 'User access levels, role definition, and permission matrix', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
       { key: 'tasktype', name: 'Task Types', description: 'Task type settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
       { key: 'state', name: 'State', description: 'State settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
       { key: 'region', name: 'Region', description: 'Region settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
       { key: 'branch', name: 'Branch', description: 'Branch settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
-      { key: 'role', name: 'Roles & Permissions', description: 'User access levels, role definition, and permission matrix', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
-      { key: 'department', name: 'Department', description: 'Company departments and business units', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
-      { key: 'designation', name: 'Designation', description: 'Employee job titles and designations', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
-      { key: 'reports', name: 'Reports & Analytics', description: 'System reports and analytics', actions: ['allView', 'ownView'] },
+//{ key: 'department', name: 'Department', description: 'Company departments and business units', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+     // { key: 'designation', name: 'Designation', description: 'Employee job titles and designations', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+     // { key: 'reports', name: 'Reports & Analytics', description: 'System reports and analytics', actions: ['allView', 'ownView'] },
+      // {
+      //   key: 'leavesettings',
+      //   name: 'Leave Settings',
+      //   description: 'Leave configuration & policies',
+      //   subModules: [
+      //     { key: 'leaveType', name: 'Leave Types', description: 'Leave type settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      //     { key: 'leaveprofile', name: 'Leave Profiles', description: 'Leave profile settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      //     { key: 'leave', name: 'Leave Settings', description: 'Leave settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      //     { key: 'nonworking', name: 'Non Working', description: 'Non Working day settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      //     { key: 'holidays', name: 'Holidays', description: 'Holidays calendar settings', actions: ['add', 'edit', 'delete', 'allView', 'ownView'] },
+      //   ],
+      // },
     ],
   },
-  {
-    key: 'leave',
-    name: 'Leave Management',
-    category: 'HR & Personnel',
-    description: 'Leave applications and approvals',
-    icon: HowToRegIcon,
-    accentColor: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
-    actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
-  },
-  {
-    key: 'holiday',
-    name: 'Holidays',
-    category: 'HR & Personnel',
-    description: 'Company holiday calendar',
-    icon: HowToRegIcon,
-    accentColor: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
-    actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
-  },
-  {
-    key: 'feeds',
-    name: 'Feeds & Announcements',
-    category: 'Communication',
-    description: 'Company announcements and posts',
-    icon: RssFeedIcon,
-    accentColor: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
-    actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
-  }
+  // {
+  //   key: 'leave',
+  //   name: 'Leave Management',
+  //   category: 'HR & Personnel',
+  //   description: 'Leave applications and approvals',
+  //   icon: HowToRegIcon,
+  //   accentColor: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
+  //   actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
+  // },
+  // {
+  //   key: 'holiday',
+  //   name: 'Holidays',
+  //   category: 'HR & Personnel',
+  //   description: 'Company holiday calendar',
+  //   icon: HowToRegIcon,
+  //   accentColor: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
+  //   actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
+  // },
+  // {
+  //   key: 'feeds',
+  //   name: 'Feeds & Announcements',
+  //   category: 'Communication',
+  //   description: 'Company announcements and posts',
+  //   icon: RssFeedIcon,
+  //   accentColor: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
+  //   actions: ['add', 'edit', 'delete', 'allView', 'ownView'],
+  // }
 ];
 
 export const sortPermissionsByModuleTree = (permissions) => {
@@ -124,12 +136,20 @@ export const sortPermissionsByModuleTree = (permissions) => {
   Object.keys(permissions).forEach((key) => {
     const val = permissions[key];
     if (key.includes('.')) {
-      const [parentKey, subKey] = key.split('.');
-      if (!normalized[parentKey]) {
-        normalized[parentKey] = {};
-      }
-      if (typeof normalized[parentKey] === 'object' && normalized[parentKey] !== null) {
-        normalized[parentKey][subKey] = val;
+      const parts = key.split('.');
+      if (parts.length === 2) {
+        const [parentKey, subKey] = parts;
+        if (!normalized[parentKey]) normalized[parentKey] = {};
+        if (typeof normalized[parentKey] === 'object' && normalized[parentKey] !== null) {
+          normalized[parentKey][subKey] = val;
+        }
+      } else if (parts.length === 3) {
+        const [parentKey, subKey, nestedKey] = parts;
+        if (!normalized[parentKey]) normalized[parentKey] = {};
+        if (!normalized[parentKey][subKey] || typeof normalized[parentKey][subKey] !== 'object') {
+          normalized[parentKey][subKey] = {};
+        }
+        normalized[parentKey][subKey][nestedKey] = val;
       }
     } else {
       if (normalized[key] && typeof normalized[key] === 'object' && typeof val === 'object' && val !== null) {
@@ -149,7 +169,23 @@ export const sortPermissionsByModuleTree = (permissions) => {
       if (val && typeof val === 'object' && mod.subModules && mod.subModules.length > 0) {
         const sortedSub = {};
         mod.subModules.forEach((sub) => {
-          if (sub.key in val) {
+          if (sub.subModules && sub.subModules.length > 0) {
+            const subVal = val[sub.key] && typeof val[sub.key] === 'object' ? val[sub.key] : {};
+            const sortedNested = {};
+            sub.subModules.forEach((nested) => {
+              if (nested.key in subVal) {
+                sortedNested[nested.key] = subVal[nested.key];
+              } else if (nested.key in val) {
+                sortedNested[nested.key] = val[nested.key];
+              }
+            });
+            Object.keys(subVal).forEach((nKey) => {
+              if (!(nKey in sortedNested)) {
+                sortedNested[nKey] = subVal[nKey];
+              }
+            });
+            sortedSub[sub.key] = sortedNested;
+          } else if (sub.key in val) {
             sortedSub[sub.key] = val[sub.key];
           }
         });

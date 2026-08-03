@@ -28,6 +28,7 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import Navbar from "../../components/common/Navbar";
 import TaskTable from "../../views/tasks/TaskTable";
 import { TaskRoute } from "../../routes/tasks/task.route.js";
+import { TaskTypeRoute } from "../../routes/tasks/task-type.js";
 
 // Task Dialog Modals
 import ViewTaskModal from "../../components/dilogs/tasks/ViewTaskModal";
@@ -127,6 +128,17 @@ export default function TaskPage() {
   const [selectedTaskType, setSelectedTaskType] = useState(
     isCustomView ? "Custom" : "All",
   );
+
+  // Task Types (dynamic from API)
+  const [taskTypes, setTaskTypes] = useState([]);
+
+  useEffect(() => {
+    TaskTypeRoute.getAllTaskTypes({ limit: 100 }).then((res) => {
+      if (res?.success && Array.isArray(res?.data?.taskTypes)) {
+        setTaskTypes(res.data.taskTypes);
+      }
+    });
+  }, []);
 
   // Pagination state
   const [page, setPage] = useState(0);
@@ -430,8 +442,11 @@ export default function TaskPage() {
                 }}
               >
                 <MenuItem value="All">All Types</MenuItem>
-                <MenuItem value="General">General</MenuItem>
-                <MenuItem value="Custom">Custom</MenuItem>
+                {taskTypes.map((tt) => (
+                  <MenuItem key={tt.id} value={tt.id}>
+                    {tt.name}
+                  </MenuItem>
+                ))}
               </TextField>
 
               {/* Status Filter */}

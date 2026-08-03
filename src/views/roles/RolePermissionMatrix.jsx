@@ -28,12 +28,18 @@ import { DEFAULT_ACTIONS, MODULE_TREE, sortPermissionsByModuleTree } from './mod
 export { DEFAULT_ACTIONS, MODULE_TREE, sortPermissionsByModuleTree };
 
 
-export const getItemAllowedActions = (parentKey, subKey = null) => {
+export const getItemAllowedActions = (parentKey, subKey = null, nestedKey = null) => {
   const mod = MODULE_TREE.find((m) => m.key === parentKey);
   if (!mod) return DEFAULT_ACTIONS;
   if (subKey && mod.subModules) {
     const sub = mod.subModules.find((s) => s.key === subKey);
     if (sub) {
+      if (nestedKey && sub.subModules) {
+        const nested = sub.subModules.find((n) => n.key === nestedKey);
+        if (nested) {
+          return nested.actions || sub.actions || mod.actions || DEFAULT_ACTIONS;
+        }
+      }
       return sub.actions || mod.actions || DEFAULT_ACTIONS;
     }
   }
@@ -43,17 +49,33 @@ export const getItemAllowedActions = (parentKey, subKey = null) => {
 // Flat export for backwards compatibility
 export const ALL_PROJECT_MODULES = MODULE_TREE.flatMap((mod) => {
   if (mod.subModules && mod.subModules.length > 0) {
-    return mod.subModules.map((sub) => ({
-      key: `${mod.key}.${sub.key}`,
-      parentKey: mod.key,
-      subKey: sub.key,
-      name: `${mod.name} - ${sub.name}`,
-      category: mod.category,
-      description: sub.description,
-      icon: mod.icon,
-      accentColor: mod.accentColor,
-      actions: sub.actions || mod.actions || DEFAULT_ACTIONS,
-    }));
+    return mod.subModules.flatMap((sub) => {
+      if (sub.subModules && sub.subModules.length > 0) {
+        return sub.subModules.map((nested) => ({
+          key: `${mod.key}.${sub.key}.${nested.key}`,
+          parentKey: mod.key,
+          subKey: sub.key,
+          nestedKey: nested.key,
+          name: `${mod.name} - ${sub.name} - ${nested.name}`,
+          category: mod.category,
+          description: nested.description,
+          icon: mod.icon,
+          accentColor: mod.accentColor,
+          actions: nested.actions || sub.actions || mod.actions || DEFAULT_ACTIONS,
+        }));
+      }
+      return [{
+        key: `${mod.key}.${sub.key}`,
+        parentKey: mod.key,
+        subKey: sub.key,
+        name: `${mod.name} - ${sub.name}`,
+        category: mod.category,
+        description: sub.description,
+        icon: mod.icon,
+        accentColor: mod.accentColor,
+        actions: sub.actions || mod.actions || DEFAULT_ACTIONS,
+      }];
+    });
   }
   return [{
     ...mod,
@@ -84,6 +106,11 @@ export default function RolePermissionMatrix({
     MODULE_TREE.forEach((mod) => {
       if (mod.subModules && mod.subModules.length > 0) {
         initial[mod.key] = false; // collapsed by default
+        mod.subModules.forEach((sub) => {
+          if (sub.subModules && sub.subModules.length > 0) {
+            initial[`${mod.key}.${sub.key}`] = true;
+          }
+        });
       }
     });
     return initial;
@@ -101,17 +128,39 @@ export default function RolePermissionMatrix({
     MODULE_TREE.forEach((mod) => {
       if (mod.subModules && mod.subModules.length > 0) {
         next[mod.key] = shouldExpand;
+        mod.subModules.forEach((sub) => {
+          if (sub.subModules && sub.subModules.length > 0) {
+            next[`${mod.key}.${sub.key}`] = shouldExpand;
+          }
+        });
       }
     });
     setExpanded(next);
   };
 
   // Helper to read safe permission object for a flat module or sub-module
-  const getPermObj = (parentKey, subKey = null) => {
-    const allowed = getItemAllowedActions(parentKey, subKey);
+  const getPermObj = (parentKey, subKey = null, nestedKey = null) => {
+    const allowed = getItemAllowedActions(parentKey, subKey, nestedKey);
     let raw = { add: false, edit: false, delete: false, allView: false, ownView: false };
 
-    if (subKey) {
+    if (nestedKey) {
+      const deepPerm = permissions[parentKey]?.[subKey]?.[nestedKey]
+        || permissions[parentKey]?.[nestedKey]
+        || permissions[`${parentKey}.${subKey}.${nestedKey}`]
+        || permissions[`${parentKey}.${nestedKey}`]
+        || permissions[`${subKey}.${nestedKey}`]
+        || permissions[nestedKey];
+
+      if (deepPerm && typeof deepPerm === 'object') {
+        raw = {
+          add: Boolean(deepPerm.add),
+          edit: Boolean(deepPerm.edit),
+          delete: Boolean(deepPerm.delete),
+          allView: Boolean(deepPerm.allView),
+          ownView: Boolean(deepPerm.ownView),
+        };
+      }
+    } else if (subKey) {
       const nestedSub = permissions[parentKey]?.[subKey];
       const flatDotSub = permissions[`${parentKey}.${subKey}`];
       const directSub = permissions[subKey];
@@ -162,12 +211,20 @@ export default function RolePermissionMatrix({
   };
 
   // Toggle single permission checkbox
-  const handleToggleSingle = (parentKey, subKey, permKey) => {
+  const handleToggleSingle = (parentKey, subKey, nestedKeyOrPermKey, permKeyParam = null) => {
     if (isReadOnly) return;
-    const allowed = getItemAllowedActions(parentKey, subKey);
+    let nestedKey = null;
+    let permKey = nestedKeyOrPermKey;
+
+    if (permKeyParam) {
+      nestedKey = nestedKeyOrPermKey;
+      permKey = permKeyParam;
+    }
+
+    const allowed = getItemAllowedActions(parentKey, subKey, nestedKey);
     if (!allowed.includes(permKey)) return;
 
-    const current = getPermObj(parentKey, subKey);
+    const current = getPermObj(parentKey, subKey, nestedKey);
     const newValue = !current[permKey];
 
     const updatedNode = {
@@ -183,7 +240,21 @@ export default function RolePermissionMatrix({
 
     const updatedPermissions = { ...permissions };
 
-    if (subKey) {
+    if (nestedKey) {
+      const parentObj =
+        typeof updatedPermissions[parentKey] === 'object' && updatedPermissions[parentKey] !== null
+          ? { ...updatedPermissions[parentKey] }
+          : {};
+      const subObj =
+        typeof parentObj[subKey] === 'object' && parentObj[subKey] !== null
+          ? { ...parentObj[subKey] }
+          : {};
+
+      subObj[nestedKey] = updatedNode;
+      parentObj[subKey] = subObj;
+      parentObj[nestedKey] = updatedNode;
+      updatedPermissions[parentKey] = parentObj;
+    } else if (subKey) {
       delete updatedPermissions[`${parentKey}.${subKey}`];
       delete updatedPermissions[subKey];
 
@@ -204,12 +275,29 @@ export default function RolePermissionMatrix({
   // Toggle column for parent module (applies action to ALL its sub-modules that allow this action)
   const handleToggleParentColumn = (parentMod, permKey) => {
     if (isReadOnly) return;
-    const subMods = (parentMod.subModules || []).filter((sub) =>
-      getItemAllowedActions(parentMod.key, sub.key).includes(permKey)
-    );
+    const subMods = parentMod.subModules || [];
     if (subMods.length === 0) return;
 
-    const isAllChecked = subMods.every((sub) => getPermObj(parentMod.key, sub.key)[permKey]);
+    let isAllChecked = true;
+    let applicableCount = 0;
+
+    subMods.forEach((sub) => {
+      if (sub.subModules && sub.subModules.length > 0) {
+        sub.subModules.forEach((nested) => {
+          if (getItemAllowedActions(parentMod.key, sub.key, nested.key).includes(permKey)) {
+            applicableCount++;
+            if (!getPermObj(parentMod.key, sub.key, nested.key)[permKey]) isAllChecked = false;
+          }
+        });
+      } else {
+        if (getItemAllowedActions(parentMod.key, sub.key).includes(permKey)) {
+          applicableCount++;
+          if (!getPermObj(parentMod.key, sub.key)[permKey]) isAllChecked = false;
+        }
+      }
+    });
+
+    if (applicableCount === 0) return;
     const targetValue = !isAllChecked;
 
     const updatedPermissions = { ...permissions };
@@ -218,25 +306,37 @@ export default function RolePermissionMatrix({
         ? { ...updatedPermissions[parentMod.key] }
         : {};
 
-    (parentMod.subModules || []).forEach((sub) => {
+    subMods.forEach((sub) => {
       delete updatedPermissions[`${parentMod.key}.${sub.key}`];
       delete updatedPermissions[sub.key];
 
-      const allowed = getItemAllowedActions(parentMod.key, sub.key);
-      const cur = getPermObj(parentMod.key, sub.key);
-      if (allowed.includes(permKey)) {
-        const updatedSub = {
-          ...cur,
-          [permKey]: targetValue,
-        };
-        if (permKey === 'allView' && targetValue && allowed.includes('ownView')) {
-          updatedSub.ownView = true;
-        } else if (permKey === 'ownView' && !targetValue && allowed.includes('allView')) {
-          updatedSub.allView = false;
-        }
-        parentObj[sub.key] = updatedSub;
+      if (sub.subModules && sub.subModules.length > 0) {
+        const subObj = typeof parentObj[sub.key] === 'object' && parentObj[sub.key] !== null ? { ...parentObj[sub.key] } : {};
+        sub.subModules.forEach((nested) => {
+          const allowed = getItemAllowedActions(parentMod.key, sub.key, nested.key);
+          const cur = getPermObj(parentMod.key, sub.key, nested.key);
+          if (allowed.includes(permKey)) {
+            const updatedNested = { ...cur, [permKey]: targetValue };
+            if (permKey === 'allView' && targetValue && allowed.includes('ownView')) updatedNested.ownView = true;
+            else if (permKey === 'ownView' && !targetValue && allowed.includes('allView')) updatedNested.allView = false;
+            subObj[nested.key] = updatedNested;
+            parentObj[nested.key] = updatedNested;
+          } else {
+            subObj[nested.key] = cur;
+          }
+        });
+        parentObj[sub.key] = subObj;
       } else {
-        parentObj[sub.key] = cur;
+        const allowed = getItemAllowedActions(parentMod.key, sub.key);
+        const cur = getPermObj(parentMod.key, sub.key);
+        if (allowed.includes(permKey)) {
+          const updatedSub = { ...cur, [permKey]: targetValue };
+          if (permKey === 'allView' && targetValue && allowed.includes('ownView')) updatedSub.ownView = true;
+          else if (permKey === 'ownView' && !targetValue && allowed.includes('allView')) updatedSub.allView = false;
+          parentObj[sub.key] = updatedSub;
+        } else {
+          parentObj[sub.key] = cur;
+        }
       }
     });
 
@@ -249,10 +349,19 @@ export default function RolePermissionMatrix({
     if (isReadOnly) return;
     const subMods = parentMod.subModules || [];
 
-    const isAllMasterChecked = subMods.every((sub) => {
-      const allowed = getItemAllowedActions(parentMod.key, sub.key);
-      const cur = getPermObj(parentMod.key, sub.key);
-      return allowed.every((actKey) => cur[actKey]);
+    let isAllMasterChecked = true;
+    subMods.forEach((sub) => {
+      if (sub.subModules && sub.subModules.length > 0) {
+        sub.subModules.forEach((nested) => {
+          const allowed = getItemAllowedActions(parentMod.key, sub.key, nested.key);
+          const cur = getPermObj(parentMod.key, sub.key, nested.key);
+          if (!allowed.every((actKey) => cur[actKey])) isAllMasterChecked = false;
+        });
+      } else {
+        const allowed = getItemAllowedActions(parentMod.key, sub.key);
+        const cur = getPermObj(parentMod.key, sub.key);
+        if (!allowed.every((actKey) => cur[actKey])) isAllMasterChecked = false;
+      }
     });
 
     const targetValue = !isAllMasterChecked;
@@ -267,12 +376,24 @@ export default function RolePermissionMatrix({
       delete updatedPermissions[`${parentMod.key}.${sub.key}`];
       delete updatedPermissions[sub.key];
 
-      const allowed = getItemAllowedActions(parentMod.key, sub.key);
-      const subState = { add: false, edit: false, delete: false, allView: false, ownView: false };
-      allowed.forEach((actKey) => {
-        subState[actKey] = targetValue;
-      });
-      parentObj[sub.key] = subState;
+      if (sub.subModules && sub.subModules.length > 0) {
+        const subObj = typeof parentObj[sub.key] === 'object' && parentObj[sub.key] !== null ? { ...parentObj[sub.key] } : {};
+        sub.subModules.forEach((nested) => {
+          const allowed = getItemAllowedActions(parentMod.key, sub.key, nested.key);
+          const targetState = { add: false, edit: false, delete: false, allView: false, ownView: false };
+          allowed.forEach((actKey) => { targetState[actKey] = targetValue; });
+          subObj[nested.key] = targetState;
+          parentObj[nested.key] = targetState;
+        });
+        parentObj[sub.key] = subObj;
+      } else {
+        const allowed = getItemAllowedActions(parentMod.key, sub.key);
+        const subState = { add: false, edit: false, delete: false, allView: false, ownView: false };
+        allowed.forEach((actKey) => {
+          subState[actKey] = targetValue;
+        });
+        parentObj[sub.key] = subState;
+      }
     });
 
     updatedPermissions[parentMod.key] = parentObj;
@@ -307,9 +428,18 @@ export default function RolePermissionMatrix({
     MODULE_TREE.forEach((mod) => {
       if (mod.subModules && mod.subModules.length > 0) {
         mod.subModules.forEach((sub) => {
-          if (getItemAllowedActions(mod.key, sub.key).includes(permKey)) {
-            applicableCount++;
-            if (!getPermObj(mod.key, sub.key)[permKey]) isAllGlobalChecked = false;
+          if (sub.subModules && sub.subModules.length > 0) {
+            sub.subModules.forEach((nested) => {
+              if (getItemAllowedActions(mod.key, sub.key, nested.key).includes(permKey)) {
+                applicableCount++;
+                if (!getPermObj(mod.key, sub.key, nested.key)[permKey]) isAllGlobalChecked = false;
+              }
+            });
+          } else {
+            if (getItemAllowedActions(mod.key, sub.key).includes(permKey)) {
+              applicableCount++;
+              if (!getPermObj(mod.key, sub.key)[permKey]) isAllGlobalChecked = false;
+            }
           }
         });
       } else {
@@ -336,15 +466,33 @@ export default function RolePermissionMatrix({
           delete nextPermissions[`${mod.key}.${sub.key}`];
           delete nextPermissions[sub.key];
 
-          const allowed = getItemAllowedActions(mod.key, sub.key);
-          const cur = getPermObj(mod.key, sub.key);
-          if (allowed.includes(permKey)) {
-            const updatedSub = { ...cur, [permKey]: targetValue };
-            if (permKey === 'allView' && targetValue && allowed.includes('ownView')) updatedSub.ownView = true;
-            else if (permKey === 'ownView' && !targetValue && allowed.includes('allView')) updatedSub.allView = false;
-            parentObj[sub.key] = updatedSub;
+          if (sub.subModules && sub.subModules.length > 0) {
+            const subObj = typeof parentObj[sub.key] === 'object' && parentObj[sub.key] !== null ? { ...parentObj[sub.key] } : {};
+            sub.subModules.forEach((nested) => {
+              const allowed = getItemAllowedActions(mod.key, sub.key, nested.key);
+              const cur = getPermObj(mod.key, sub.key, nested.key);
+              if (allowed.includes(permKey)) {
+                const updatedNested = { ...cur, [permKey]: targetValue };
+                if (permKey === 'allView' && targetValue && allowed.includes('ownView')) updatedNested.ownView = true;
+                else if (permKey === 'ownView' && !targetValue && allowed.includes('allView')) updatedNested.allView = false;
+                subObj[nested.key] = updatedNested;
+                parentObj[nested.key] = updatedNested;
+              } else {
+                subObj[nested.key] = cur;
+              }
+            });
+            parentObj[sub.key] = subObj;
           } else {
-            parentObj[sub.key] = cur;
+            const allowed = getItemAllowedActions(mod.key, sub.key);
+            const cur = getPermObj(mod.key, sub.key);
+            if (allowed.includes(permKey)) {
+              const updatedSub = { ...cur, [permKey]: targetValue };
+              if (permKey === 'allView' && targetValue && allowed.includes('ownView')) updatedSub.ownView = true;
+              else if (permKey === 'ownView' && !targetValue && allowed.includes('allView')) updatedSub.allView = false;
+              parentObj[sub.key] = updatedSub;
+            } else {
+              parentObj[sub.key] = cur;
+            }
           }
         });
         nextPermissions[mod.key] = parentObj;
@@ -370,8 +518,8 @@ export default function RolePermissionMatrix({
     if (isReadOnly) return;
     const nextPermissions = {};
 
-    const buildState = (parentKey, subKey, modCategory) => {
-      const allowed = getItemAllowedActions(parentKey, subKey);
+    const buildState = (parentKey, subKey, nestedKey, modCategory) => {
+      const allowed = getItemAllowedActions(parentKey, subKey, nestedKey);
       const state = { add: false, edit: false, delete: false, allView: false, ownView: false };
 
       if (presetType === 'full') {
@@ -393,11 +541,21 @@ export default function RolePermissionMatrix({
       if (mod.subModules && mod.subModules.length > 0) {
         const parentObj = {};
         mod.subModules.forEach((sub) => {
-          parentObj[sub.key] = buildState(mod.key, sub.key, mod.category);
+          if (sub.subModules && sub.subModules.length > 0) {
+            const subObj = {};
+            sub.subModules.forEach((nested) => {
+              const state = buildState(mod.key, sub.key, nested.key, mod.category);
+              subObj[nested.key] = state;
+              parentObj[nested.key] = state;
+            });
+            parentObj[sub.key] = subObj;
+          } else {
+            parentObj[sub.key] = buildState(mod.key, sub.key, null, mod.category);
+          }
         });
         nextPermissions[mod.key] = parentObj;
       } else {
-        nextPermissions[mod.key] = buildState(mod.key, null, mod.category);
+        nextPermissions[mod.key] = buildState(mod.key, null, null, mod.category);
       }
     });
 
@@ -411,12 +569,23 @@ export default function RolePermissionMatrix({
   MODULE_TREE.forEach((mod) => {
     if (mod.subModules && mod.subModules.length > 0) {
       mod.subModules.forEach((sub) => {
-        const allowed = getItemAllowedActions(mod.key, sub.key);
-        const p = getPermObj(mod.key, sub.key);
-        const allChecked = allowed.every((actKey) => p[actKey]);
-        const someChecked = allowed.some((actKey) => p[actKey]);
-        if (!allChecked) isAllGlobalMasterChecked = false;
-        if (someChecked) isSomeGlobalMasterChecked = true;
+        if (sub.subModules && sub.subModules.length > 0) {
+          sub.subModules.forEach((nested) => {
+            const allowed = getItemAllowedActions(mod.key, sub.key, nested.key);
+            const p = getPermObj(mod.key, sub.key, nested.key);
+            const allChecked = allowed.every((actKey) => p[actKey]);
+            const someChecked = allowed.some((actKey) => p[actKey]);
+            if (!allChecked) isAllGlobalMasterChecked = false;
+            if (someChecked) isSomeGlobalMasterChecked = true;
+          });
+        } else {
+          const allowed = getItemAllowedActions(mod.key, sub.key);
+          const p = getPermObj(mod.key, sub.key);
+          const allChecked = allowed.every((actKey) => p[actKey]);
+          const someChecked = allowed.some((actKey) => p[actKey]);
+          if (!allChecked) isAllGlobalMasterChecked = false;
+          if (someChecked) isSomeGlobalMasterChecked = true;
+        }
       });
     } else {
       const allowed = getItemAllowedActions(mod.key);
@@ -437,10 +606,22 @@ export default function RolePermissionMatrix({
       if (mod.subModules && mod.subModules.length > 0) {
         const parentObj = {};
         mod.subModules.forEach((sub) => {
-          const allowed = getItemAllowedActions(mod.key, sub.key);
-          const state = { add: false, edit: false, delete: false, allView: false, ownView: false };
-          allowed.forEach((actKey) => { state[actKey] = targetValue; });
-          parentObj[sub.key] = state;
+          if (sub.subModules && sub.subModules.length > 0) {
+            const subObj = {};
+            sub.subModules.forEach((nested) => {
+              const allowed = getItemAllowedActions(mod.key, sub.key, nested.key);
+              const state = { add: false, edit: false, delete: false, allView: false, ownView: false };
+              allowed.forEach((actKey) => { state[actKey] = targetValue; });
+              subObj[nested.key] = state;
+              parentObj[nested.key] = state;
+            });
+            parentObj[sub.key] = subObj;
+          } else {
+            const allowed = getItemAllowedActions(mod.key, sub.key);
+            const state = { add: false, edit: false, delete: false, allView: false, ownView: false };
+            allowed.forEach((actKey) => { state[actKey] = targetValue; });
+            parentObj[sub.key] = state;
+          }
         });
         nextPermissions[mod.key] = parentObj;
       } else {
@@ -469,7 +650,13 @@ export default function RolePermissionMatrix({
       (s) =>
         s.name.toLowerCase().includes(searchLower) ||
         s.key.toLowerCase().includes(searchLower) ||
-        s.description.toLowerCase().includes(searchLower)
+        s.description.toLowerCase().includes(searchLower) ||
+        s.subModules?.some(
+          (n) =>
+            n.name.toLowerCase().includes(searchLower) ||
+            n.key.toLowerCase().includes(searchLower) ||
+            n.description.toLowerCase().includes(searchLower)
+        )
     );
 
     const matchesCat = selectedCategory === 'All' || mod.category === selectedCategory;
@@ -484,15 +671,29 @@ export default function RolePermissionMatrix({
   MODULE_TREE.forEach((mod) => {
     if (mod.subModules && mod.subModules.length > 0) {
       mod.subModules.forEach((sub) => {
-        const allowed = getItemAllowedActions(mod.key, sub.key);
-        maxPossible += allowed.length;
-        const p = getPermObj(mod.key, sub.key);
-        allowed.forEach((actKey) => {
-          if (p[actKey]) {
-            totalChecked++;
-            actionCounts[actKey]++;
-          }
-        });
+        if (sub.subModules && sub.subModules.length > 0) {
+          sub.subModules.forEach((nested) => {
+            const allowed = getItemAllowedActions(mod.key, sub.key, nested.key);
+            maxPossible += allowed.length;
+            const p = getPermObj(mod.key, sub.key, nested.key);
+            allowed.forEach((actKey) => {
+              if (p[actKey]) {
+                totalChecked++;
+                actionCounts[actKey]++;
+              }
+            });
+          });
+        } else {
+          const allowed = getItemAllowedActions(mod.key, sub.key);
+          maxPossible += allowed.length;
+          const p = getPermObj(mod.key, sub.key);
+          allowed.forEach((actKey) => {
+            if (p[actKey]) {
+              totalChecked++;
+              actionCounts[actKey]++;
+            }
+          });
+        }
       });
     } else {
       const allowed = getItemAllowedActions(mod.key);
@@ -733,11 +934,25 @@ export default function RolePermissionMatrix({
                 if (hasSub) {
                   const subMods = mod.subModules;
                   const isAllMasterChecked = subMods.every((sub) => {
+                    if (sub.subModules && sub.subModules.length > 0) {
+                      return sub.subModules.every((nested) => {
+                        const allowed = getItemAllowedActions(mod.key, sub.key, nested.key);
+                        const p = getPermObj(mod.key, sub.key, nested.key);
+                        return allowed.every((actKey) => p[actKey]);
+                      });
+                    }
                     const allowed = getItemAllowedActions(mod.key, sub.key);
                     const p = getPermObj(mod.key, sub.key);
                     return allowed.every((actKey) => p[actKey]);
                   });
                   const isSomeMasterChecked = subMods.some((sub) => {
+                    if (sub.subModules && sub.subModules.length > 0) {
+                      return sub.subModules.some((nested) => {
+                        const allowed = getItemAllowedActions(mod.key, sub.key, nested.key);
+                        const p = getPermObj(mod.key, sub.key, nested.key);
+                        return allowed.some((actKey) => p[actKey]);
+                      });
+                    }
                     const allowed = getItemAllowedActions(mod.key, sub.key);
                     const p = getPermObj(mod.key, sub.key);
                     return allowed.some((actKey) => p[actKey]);
@@ -859,6 +1074,211 @@ export default function RolePermissionMatrix({
                       {/* Sub-Module Rows (Collapsible) */}
                       {isExpanded &&
                         subMods.map((sub) => {
+                          const hasNested = sub.subModules && sub.subModules.length > 0;
+                          if (hasNested) {
+                            const isSubExpanded = expanded[`${mod.key}.${sub.key}`] ?? true;
+                            const nestedSubs = sub.subModules;
+                            const isSubGroupAllChecked = nestedSubs.every((nested) => {
+                              const allowed = getItemAllowedActions(mod.key, sub.key, nested.key);
+                              const p = getPermObj(mod.key, sub.key, nested.key);
+                              return allowed.every((actKey) => p[actKey]);
+                            });
+                            const isSubGroupSomeChecked = nestedSubs.some((nested) => {
+                              const allowed = getItemAllowedActions(mod.key, sub.key, nested.key);
+                              const p = getPermObj(mod.key, sub.key, nested.key);
+                              return allowed.some((actKey) => p[actKey]);
+                            });
+
+                            return (
+                              <React.Fragment key={`${mod.key}.${sub.key}`}>
+                                {/* Sub-Group Header Row */}
+                                <tr className={`transition-colors border-t border-dashed ${isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100/70 border-slate-300'}`}>
+                                  <td className="py-2.5 pl-8 pr-4">
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => toggleExpand(`${mod.key}.${sub.key}`)}
+                                        className={`p-1 rounded-md transition-colors cursor-pointer ${isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-200 text-slate-700'}`}
+                                      >
+                                        {isSubExpanded ? (
+                                          <KeyboardArrowDownIcon sx={{ fontSize: 18 }} />
+                                        ) : (
+                                          <KeyboardArrowRightIcon sx={{ fontSize: 18 }} />
+                                        )}
+                                      </button>
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-extrabold text-xs text-blue-600 dark:text-blue-400">{sub.name}</span>
+                                          <Chip
+                                            label={`${nestedSubs.length} Sub-settings`}
+                                            size="small"
+                                            className="font-bold text-[9px] h-3.5"
+                                            color="secondary"
+                                            variant="outlined"
+                                          />
+                                        </div>
+                                        <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                          {sub.description}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center align-middle">
+                                    <Tooltip title={`Toggle allowed permissions for ${sub.name}`}>
+                                      <Checkbox
+                                        checked={isSubGroupAllChecked}
+                                        indeterminate={isSubGroupSomeChecked && !isSubGroupAllChecked}
+                                        onChange={() => {
+                                          if (isReadOnly) return;
+                                          const targetValue = !isSubGroupAllChecked;
+                                          const updatedPermissions = { ...permissions };
+                                          const parentObj = typeof updatedPermissions[mod.key] === 'object' && updatedPermissions[mod.key] !== null
+                                            ? { ...updatedPermissions[mod.key] }
+                                            : {};
+                                          const subObj = typeof parentObj[sub.key] === 'object' && parentObj[sub.key] !== null
+                                            ? { ...parentObj[sub.key] }
+                                            : {};
+                                          nestedSubs.forEach((nested) => {
+                                            const allowed = getItemAllowedActions(mod.key, sub.key, nested.key);
+                                            const targetState = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                                            allowed.forEach((actKey) => { targetState[actKey] = targetValue; });
+                                            subObj[nested.key] = targetState;
+                                            parentObj[nested.key] = targetState;
+                                          });
+                                          parentObj[sub.key] = subObj;
+                                          updatedPermissions[mod.key] = parentObj;
+                                          onChange(updatedPermissions);
+                                        }}
+                                        disabled={isReadOnly}
+                                        size="small"
+                                        sx={{
+                                          color: isDark ? '#475569' : '#94a3b8',
+                                          '&.Mui-checked': { color: '#2563eb' },
+                                        }}
+                                      />
+                                    </Tooltip>
+                                  </td>
+                                  {PERMISSION_COLUMNS.map((col) => {
+                                    const applicable = nestedSubs.filter((nested) =>
+                                      getItemAllowedActions(mod.key, sub.key, nested.key).includes(col.key)
+                                    );
+                                    if (applicable.length === 0) {
+                                      return (
+                                        <td key={col.key} className="py-2.5 px-3 text-center align-middle">
+                                          <span className={`text-xs font-bold select-none px-2 py-0.5 rounded ${isDark ? 'text-slate-600 bg-slate-900/60' : 'text-slate-300 bg-slate-100'}`}>—</span>
+                                        </td>
+                                      );
+                                    }
+                                    const isAllCol = applicable.every((nested) => getPermObj(mod.key, sub.key, nested.key)[col.key]);
+                                    const isSomeCol = applicable.some((nested) => getPermObj(mod.key, sub.key, nested.key)[col.key]);
+                                    return (
+                                      <td key={col.key} className="py-2.5 px-3 text-center align-middle">
+                                        <Checkbox
+                                          checked={isAllCol}
+                                          indeterminate={isSomeCol && !isAllCol}
+                                          onChange={() => {
+                                            if (isReadOnly) return;
+                                            const targetValue = !isAllCol;
+                                            const updatedPermissions = { ...permissions };
+                                            const parentObj = typeof updatedPermissions[mod.key] === 'object' && updatedPermissions[mod.key] !== null
+                                              ? { ...updatedPermissions[mod.key] }
+                                              : {};
+                                            const subObj = typeof parentObj[sub.key] === 'object' && parentObj[sub.key] !== null
+                                              ? { ...parentObj[sub.key] }
+                                              : {};
+                                            applicable.forEach((nested) => {
+                                              const cur = getPermObj(mod.key, sub.key, nested.key);
+                                              const updated = { ...cur, [col.key]: targetValue };
+                                              subObj[nested.key] = updated;
+                                              parentObj[nested.key] = updated;
+                                            });
+                                            parentObj[sub.key] = subObj;
+                                            updatedPermissions[mod.key] = parentObj;
+                                            onChange(updatedPermissions);
+                                          }}
+                                          disabled={isReadOnly}
+                                          size="small"
+                                        />
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                                {/* Nested Sub-Module Rows */}
+                                {isSubExpanded && nestedSubs.map((nested) => {
+                                  const allowedActions = getItemAllowedActions(mod.key, sub.key, nested.key);
+                                  const currentPerm = getPermObj(mod.key, sub.key, nested.key);
+                                  const isRowAllChecked = allowedActions.every((actKey) => currentPerm[actKey]);
+                                  const isRowSomeChecked = allowedActions.some((actKey) => currentPerm[actKey]);
+
+                                  return (
+                                    <tr key={`${mod.key}.${sub.key}.${nested.key}`} className={`transition-colors ${isRowAllChecked ? (isDark ? 'bg-blue-950/20' : 'bg-blue-50/40') : (isDark ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50')}`}>
+                                      <td className="py-2 pl-14 pr-4">
+                                        <div className="flex items-center gap-2">
+                                          <SubdirectoryArrowRightIcon className="text-slate-400" sx={{ fontSize: 16 }} />
+                                          <div>
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-bold text-xs">{nested.name}</span>
+                                              <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
+                                                key: {nested.key}
+                                              </span>
+                                            </div>
+                                            <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{nested.description}</p>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="py-2 px-3 text-center align-middle">
+                                        <Checkbox
+                                          checked={isRowAllChecked}
+                                          indeterminate={isRowSomeChecked && !isRowAllChecked}
+                                          onChange={() => {
+                                            if (isReadOnly) return;
+                                            const targetValue = !isRowAllChecked;
+                                            const targetState = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                                            allowedActions.forEach((actKey) => { targetState[actKey] = targetValue; });
+                                            const updatedPermissions = { ...permissions };
+                                            const parentObj = typeof updatedPermissions[mod.key] === 'object' && updatedPermissions[mod.key] !== null
+                                              ? { ...updatedPermissions[mod.key] }
+                                              : {};
+                                            const subObj = typeof parentObj[sub.key] === 'object' && parentObj[sub.key] !== null
+                                              ? { ...parentObj[sub.key] }
+                                              : {};
+                                            subObj[nested.key] = targetState;
+                                            parentObj[sub.key] = subObj;
+                                            parentObj[nested.key] = targetState;
+                                            updatedPermissions[mod.key] = parentObj;
+                                            onChange(updatedPermissions);
+                                          }}
+                                          disabled={isReadOnly}
+                                          size="small"
+                                        />
+                                      </td>
+                                      {PERMISSION_COLUMNS.map((col) => {
+                                        const isAllowed = allowedActions.includes(col.key);
+                                        if (!isAllowed) {
+                                          return (
+                                            <td key={col.key} className="py-2 px-3 text-center align-middle">
+                                              <span className={`text-xs font-bold select-none px-2 py-0.5 rounded ${isDark ? 'text-slate-600 bg-slate-900/60' : 'text-slate-300 bg-slate-100'}`}>—</span>
+                                            </td>
+                                          );
+                                        }
+                                        const isChecked = Boolean(currentPerm[col.key]);
+                                        return (
+                                          <td key={col.key} className="py-2 px-3 text-center align-middle">
+                                            <Checkbox
+                                              checked={isChecked}
+                                              onChange={() => handleToggleSingle(mod.key, sub.key, nested.key, col.key)}
+                                              disabled={isReadOnly}
+                                              size="small"
+                                            />
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  );
+                                })}
+                              </React.Fragment>
+                            );
+                          }
+
                           const allowedActions = getItemAllowedActions(mod.key, sub.key);
                           const currentPerm = getPermObj(mod.key, sub.key);
                           const isRowAllChecked = allowedActions.every((actKey) => currentPerm[actKey]);

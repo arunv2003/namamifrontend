@@ -109,14 +109,36 @@ const formatDateDDMMYYYY = (date) => {
 
 const filterUniquePoints = (points) => {
   if (!points || points.length === 0) return [];
-  const result = [points[0]];
+  if (points.length <= 2) return points;
+
+  const result = [];
+  let anchor = points[0];
+  result.push(anchor);
+
+  // Stoppage Cluster Radius: 0.15 km (150 meters)
+  // Collapses all GPS drift pings while stopped at the same location into a single point
+  const CLUSTER_RADIUS_KM = 0.15;
+
   for (let i = 1; i < points.length; i++) {
-    const prev = result[result.length - 1];
     const curr = points[i];
-    if (Math.abs(prev.lat - curr.lat) > 0.00003 || Math.abs(prev.lng - curr.lng) > 0.00003) {
+    const distFromAnchor = calculateDistanceKm(anchor.lat, anchor.lng, curr.lat, curr.lng);
+
+    // Only accept new point when employee has actually traveled > 150 meters away from previous anchor
+    if (distFromAnchor >= CLUSTER_RADIUS_KM) {
       result.push(curr);
+      anchor = curr;
     }
   }
+
+  const lastPt = points[points.length - 1];
+  const lastResultPt = result[result.length - 1];
+  if (
+    lastPt &&
+    (Math.abs(lastResultPt.lat - lastPt.lat) > 0.0001 || Math.abs(lastResultPt.lng - lastPt.lng) > 0.0001)
+  ) {
+    result.push(lastPt);
+  }
+
   return result;
 };
 
@@ -125,19 +147,64 @@ const fetchRoadMatchedRoute = async (points) => {
   if (!uniquePoints || uniquePoints.length < 2) {
     return points ? points.map((p) => [p.lat, p.lng]) : [];
   }
+
   try {
-    const coordsString = uniquePoints.map((p) => `${p.lng},${p.lat}`).join(';');
-    const res = await fetch(
-      `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`
-    );
-    const data = await res.json();
-    if (data?.routes?.[0]?.geometry?.coordinates) {
-      return data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+    // Chunk waypoints (max 35 per batch) to prevent OSRM URL truncation & ensure turn-by-turn road snapping
+    const chunkSize = 35;
+    const allRoadCoords = [];
+
+    for (let i = 0; i < uniquePoints.length - 1; i += chunkSize - 1) {
+      const chunk = uniquePoints.slice(i, i + chunkSize);
+      if (chunk.length < 2) continue;
+
+      const coordsString = chunk.map((p) => `${p.lng},${p.lat}`).join(';');
+
+      // 1. OSRM Map Matching API (HMM map matching eliminates opposite-lane pings & double-line U-turns on divided highways)
+      let res = await fetch(
+        `https://router.project-osrm.org/match/v1/driving/${coordsString}?overview=full&geometries=geojson&gaps=ignore&tidy=true`
+      );
+
+      let data = await res.json();
+      let coords = null;
+
+      if (data?.code === 'Ok' && data?.matchings && data.matchings.length > 0) {
+        coords = data.matchings.flatMap((m) => m.geometry?.coordinates || []);
+      }
+
+      // 2. Fallback to OSRM Route API if map matching is unavailable
+      if (!coords || coords.length === 0) {
+        res = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson&continue_straight=true`
+        );
+        data = await res.json();
+        coords = data?.routes?.[0]?.geometry?.coordinates;
+      }
+
+      if (coords && coords.length > 0) {
+        const latLngs = coords.map(([lng, lat]) => [lat, lng]);
+        if (allRoadCoords.length > 0) {
+          allRoadCoords.push(...latLngs.slice(1));
+        } else {
+          allRoadCoords.push(...latLngs);
+        }
+      } else {
+        const directChunk = chunk.map((p) => [p.lat, p.lng]);
+        if (allRoadCoords.length > 0) {
+          allRoadCoords.push(...directChunk.slice(1));
+        } else {
+          allRoadCoords.push(...directChunk);
+        }
+      }
+    }
+
+    if (allRoadCoords.length > 0) {
+      return allRoadCoords;
     }
   } catch (e) {
-    console.warn('OSRM routing fallback:', e);
+    console.warn('OSRM road route fetch error:', e);
   }
-  return points.map((p) => [p.lat, p.lng]);
+
+  return uniquePoints.map((p) => [p.lat, p.lng]);
 };
 
 const calculateBearing = (startLat, startLng, endLat, endLng) => {
@@ -474,7 +541,16 @@ function PlaybackView({ locationPoints, isDark, calendarDateLabel, totalDistance
     if (playbackMarkerRef.current && playbackMarkerRef.current._icon) {
       playbackMarkerRef.current._icon.style.transition = 'none';
     }
-  }, [progress, locationPoints, roadMatchedPath]);
+
+    // 3. Auto-scroll / Pan map to follow vehicle marker so it never hides off-screen
+    if (isPlaying && map) {
+      const bounds = map.getBounds();
+      const innerBounds = bounds.pad(-0.15); // 15% inner viewport safety margin
+      if (!innerBounds.contains(latLng)) {
+        map.panTo(latLng, { animate: true, duration: 0.25 });
+      }
+    }
+  }, [progress, isPlaying, locationPoints, roadMatchedPath]);
 
   const currentSpeedKmH = useMemo(() => {
     if (!locationPoints || locationPoints.length < 2 || playbackIndex === 0) return 0;

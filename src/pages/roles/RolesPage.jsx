@@ -67,13 +67,22 @@ export default function RolesPage() {
       if (mod.subModules && mod.subModules.length > 0) {
         defaultPerms[mod.key] = {};
         mod.subModules.forEach((sub) => {
-          defaultPerms[mod.key][sub.key] = {
-            add: false,
-            edit: false,
-            delete: false,
-            allView: false,
-            ownView: false,
-          };
+          if (sub.subModules && sub.subModules.length > 0) {
+            defaultPerms[mod.key][sub.key] = {};
+            sub.subModules.forEach((nested) => {
+              const emptyFlags = { add: false, edit: false, delete: false, allView: false, ownView: false };
+              defaultPerms[mod.key][sub.key][nested.key] = { ...emptyFlags };
+              defaultPerms[mod.key][nested.key] = { ...emptyFlags };
+            });
+          } else {
+            defaultPerms[mod.key][sub.key] = {
+              add: false,
+              edit: false,
+              delete: false,
+              allView: false,
+              ownView: false,
+            };
+          }
         });
       } else {
         defaultPerms[mod.key] = {
@@ -101,12 +110,29 @@ export default function RolesPage() {
         if (!node || typeof node !== 'object') return;
 
         if (key.includes('.')) {
-          const [parentKey, subKey] = key.split('.');
-          if (!defaultPerms[parentKey]) defaultPerms[parentKey] = {};
-          if (!defaultPerms[parentKey][subKey]) {
-            defaultPerms[parentKey][subKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+          const parts = key.split('.');
+          if (parts.length === 2) {
+            const [parentKey, subKey] = parts;
+            if (!defaultPerms[parentKey]) defaultPerms[parentKey] = {};
+            if (!defaultPerms[parentKey][subKey]) {
+              defaultPerms[parentKey][subKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+            }
+            mergeFlags(defaultPerms[parentKey][subKey], node);
+          } else if (parts.length === 3) {
+            const [parentKey, subKey, nestedKey] = parts;
+            if (!defaultPerms[parentKey]) defaultPerms[parentKey] = {};
+            if (!defaultPerms[parentKey][subKey] || typeof defaultPerms[parentKey][subKey] !== 'object') {
+              defaultPerms[parentKey][subKey] = {};
+            }
+            if (!defaultPerms[parentKey][subKey][nestedKey]) {
+              defaultPerms[parentKey][subKey][nestedKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+            }
+            mergeFlags(defaultPerms[parentKey][subKey][nestedKey], node);
+            if (!defaultPerms[parentKey][nestedKey]) {
+              defaultPerms[parentKey][nestedKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+            }
+            mergeFlags(defaultPerms[parentKey][nestedKey], node);
           }
-          mergeFlags(defaultPerms[parentKey][subKey], node);
         } else if (defaultPerms[key]) {
           const isSubModuleParent =
             typeof defaultPerms[key] === 'object' &&
@@ -116,10 +142,47 @@ export default function RolesPage() {
             Object.keys(node).forEach((subKey) => {
               const subNode = node[subKey];
               if (subNode && typeof subNode === 'object') {
-                if (!defaultPerms[key][subKey]) {
-                  defaultPerms[key][subKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                const nestedObjectKeys = Object.keys(subNode).filter(
+                  (nk) => subNode[nk] && typeof subNode[nk] === 'object' && !Array.isArray(subNode[nk])
+                );
+
+                if (nestedObjectKeys.length > 0) {
+                  if (!defaultPerms[key][subKey] || typeof defaultPerms[key][subKey] !== 'object') {
+                    defaultPerms[key][subKey] = {};
+                  }
+                  nestedObjectKeys.forEach((nestedKey) => {
+                    const nestedNode = subNode[nestedKey];
+                    if (!defaultPerms[key][subKey][nestedKey]) {
+                      defaultPerms[key][subKey][nestedKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                    }
+                    mergeFlags(defaultPerms[key][subKey][nestedKey], nestedNode);
+                    if (!defaultPerms[key][nestedKey]) {
+                      defaultPerms[key][nestedKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                    }
+                    mergeFlags(defaultPerms[key][nestedKey], nestedNode);
+                  });
                 }
-                mergeFlags(defaultPerms[key][subKey], subNode);
+
+                MODULE_TREE.forEach((m) => {
+                  if (m.key === key && m.subModules) {
+                    m.subModules.forEach((s) => {
+                      if (s.subModules && s.subModules.some((n) => n.key === subKey)) {
+                        if (!defaultPerms[key][s.key]) defaultPerms[key][s.key] = {};
+                        if (!defaultPerms[key][s.key][subKey] || typeof defaultPerms[key][s.key][subKey] !== 'object') {
+                          defaultPerms[key][s.key][subKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                        }
+                        mergeFlags(defaultPerms[key][s.key][subKey], subNode);
+                      }
+                    });
+                  }
+                });
+
+                if (!defaultPerms[key][subKey] || 'add' in defaultPerms[key][subKey] || 'allView' in defaultPerms[key][subKey]) {
+                  if (!defaultPerms[key][subKey]) {
+                    defaultPerms[key][subKey] = { add: false, edit: false, delete: false, allView: false, ownView: false };
+                  }
+                  mergeFlags(defaultPerms[key][subKey], subNode);
+                }
               }
             });
           } else {
@@ -203,6 +266,17 @@ export default function RolesPage() {
     }
   }, [roles, selectedPreviewRoleId, unpackRolePermissions]);
 
+  useEffect(() => {
+    const handleAdminAdd = (e) => {
+      if (!e.detail?.section || e.detail.section === 'role') {
+        setSelectedRole(null);
+        setFormModalOpen(true);
+      }
+    };
+    window.addEventListener('admin-open-create-modal', handleAdminAdd);
+    return () => window.removeEventListener('admin-open-create-modal', handleAdminAdd);
+  }, []);
+
   const handleOpenCreateModal = () => {
     setSelectedRole(null);
     setFormModalOpen(true);
@@ -251,64 +325,65 @@ export default function RolesPage() {
       {/* Top Navbar */}
       <Navbar user={user} logout={logout} />
 
-      {/* Sub-header Title & Navigation */}
-      <div className={`px-3 sm:px-4 py-2 border-b flex flex-wrap items-center justify-between gap-2.5 ${
-        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-2xs'
-      }`}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-xs">
-            <SecurityIcon sx={{ fontSize: 18 }} />
-          </div>
-          <div>
-            <h1 className={`text-sm sm:text-base font-extrabold leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Roles & Permissions
-            </h1>
-            <p className={`text-[11px] font-semibold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-              Access Control & Module Permission Matrix
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Refresh Button */}
-          <Button
-            onClick={fetchRoles}
-            variant="outlined"
-            size="small"
-            startIcon={<RefreshIcon />}
-            sx={{
-              borderRadius: '0.5rem',
-              borderColor: isDark ? '#334155' : '#cbd5e1',
-              color: isDark ? '#cbd5e1' : '#475569',
-              textTransform: 'none',
-              fontSize: '0.75rem',
-            }}
-          >
-            Refresh
-          </Button>
-
-          {/* Add Role Button */}
-          <Button
-            onClick={handleOpenCreateModal}
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            sx={{
-              borderRadius: '0.5rem',
-              backgroundColor: '#2563eb',
-              '&:hover': { backgroundColor: '#1d4ed8' },
-              textTransform: 'none',
-              fontWeight: 700,
-              fontSize: '0.75rem',
-            }}
-          >
-            Add New Role
-          </Button>
-        </div>
-      </div>
-
       {/* Main Container */}
-      <main className="flex-1 p-3 sm:p-4 space-y-3.5 w-full">
+      <main className="flex-1 flex flex-col min-h-0 w-full">
+        {/* Sub-header Title & Navigation */}
+        <div className={`px-3 sm:px-4 py-2 border-b flex flex-wrap items-center justify-between gap-2.5 ${
+          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-2xs'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-xs">
+              <SecurityIcon sx={{ fontSize: 18 }} />
+            </div>
+            <div>
+              <h1 className={`text-sm sm:text-base font-extrabold leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                Roles & Permissions
+              </h1>
+              <p className={`text-[11px] font-semibold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                Access Control & Module Permission Matrix
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Refresh Button */}
+            <Button
+              onClick={fetchRoles}
+              variant="outlined"
+              size="small"
+              startIcon={<RefreshIcon />}
+              sx={{
+                borderRadius: '0.5rem',
+                borderColor: isDark ? '#334155' : '#cbd5e1',
+                color: isDark ? '#cbd5e1' : '#475569',
+                textTransform: 'none',
+                fontSize: '0.75rem',
+              }}
+            >
+              Refresh
+            </Button>
+
+            {/* Add Role Button */}
+            <Button
+              onClick={handleOpenCreateModal}
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              sx={{
+                borderRadius: '0.5rem',
+                backgroundColor: '#2563eb',
+                '&:hover': { backgroundColor: '#1d4ed8' },
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: '0.75rem',
+              }}
+            >
+              Add New Role
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-3 sm:p-4 space-y-3.5 w-full">
         {/* KPI Metric Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Card 1: Total Roles */}
@@ -545,6 +620,7 @@ export default function RolesPage() {
             />
           </div>
         )}
+        </div>
       </main>
 
       {/* Role Create / Edit Modal */}
